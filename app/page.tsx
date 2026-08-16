@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { toIST, toISTTime, ageMinutes } from '@/lib/utils'
-import type { Trade, MissedTrade, Decision, BotStatus, AccountSnapshot } from '@/lib/types'
+import type { Trade, MissedOpportunity, Decision, BotStatus, AccountSnapshot } from '@/lib/types'
 import EmaToggle from '@/components/EmaToggle'
 
 const INSTRUMENTS = {
@@ -19,7 +19,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     { data: snapshots },
   ] = await Promise.all([
     supabase.from('trades').select('*').order('created_at', { ascending: false }).limit(50),
-    supabase.from('missed_trades').select('*').order('created_at', { ascending: false }).limit(20),
+    supabase.from('missed_opportunities').select('*').order('created_at', { ascending: false }).limit(20),
     supabase.from('decisions').select('*').eq('symbol', selectedInstrument).order('created_at', { ascending: false }).limit(20),
     supabase.from('bot_status').select('*').eq('id', 1),
     supabase.from('account_snapshots').select('*').order('created_at', { ascending: false }).limit(1),
@@ -37,9 +37,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const usagePct = equity > 0 ? Math.round((allocated / equity) * 100) : 0
 
   const tradeList = (trades ?? []) as Trade[]
-  const missedList = (missed ?? []) as MissedTrade[]
+  const missedList = (missed ?? []) as MissedOpportunity[]
   const decisionList = (decisions ?? []) as Decision[]
-
   // Equity eğrisi için kümülatif P/L
   let cumulative = 0
   const equityCurve = [...tradeList].reverse().map(t => {
@@ -209,7 +208,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                   <th className="pb-2 pr-4">Sembol</th>
                   <th className="pb-2 pr-4">Yön</th>
                   <th className="pb-2 pr-4">Sinyal Fiyatı</th>
-                  <th className="pb-2 pr-4">Güncel</th>
+                  <th className="pb-2 pr-4">Gerekli Notional</th>
                   <th className="pb-2 pr-4">Sebep</th>
                   <th className="pb-2">Tarih (İST)</th>
                 </tr>
@@ -220,7 +219,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                     <td className="py-2 pr-4 font-medium">{m.symbol}</td>
                     <td className={`py-2 pr-4 font-semibold ${m.side === 'BUY' ? 'text-green-400' : 'text-red-400'}`}>{m.side}</td>
                     <td className="py-2 pr-4 font-mono">${m.signal_price.toLocaleString()}</td>
-                    <td className="py-2 pr-4 font-mono text-gray-400">{m.current_price ? `$${m.current_price.toLocaleString()}` : '—'}</td>
+                    <td className="py-2 pr-4 font-mono text-gray-400">${m.required_notional?.toLocaleString() ?? '—'}</td>
                     <td className="py-2 pr-4 text-gray-400 text-xs">{m.reason ?? '—'}</td>
                     <td className="py-2 text-gray-500 text-xs">{toIST(m.created_at)}</td>
                   </tr>
@@ -256,7 +255,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                     <tr key={t.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
                       <td className="py-2 pr-3 font-medium">{t.symbol}</td>
                       <td className={`py-2 pr-3 font-semibold ${t.side === 'BUY' ? 'text-green-400' : 'text-red-400'}`}>{t.side}</td>
-                      <td className="py-2 pr-3 font-mono">${t.price.toLocaleString()}</td>
+                      <td className="py-2 pr-3 font-mono">${t.entry_price?.toLocaleString() ?? '—'}</td>
                       <td className="py-2 pr-3 font-mono">{t.quantity}</td>
                       <td className={`py-2 pr-3 font-mono ${(t.profit_loss ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                         {t.profit_loss != null ? `$${t.profit_loss.toFixed(2)}` : '—'}

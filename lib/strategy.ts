@@ -1,4 +1,6 @@
 import { EMA, RSI, ATR } from 'technicalindicators'
+import { CONFIG } from './config'
+import type { InstrumentState } from './types'
 
 export type Candle = {
   open: number
@@ -6,145 +8,203 @@ export type Candle = {
   low: number
   close: number
   volume: number
+  time: number
 }
 
-// WaveTrend (LazyBear) hesaplama
 export function calcWaveTrend(candles: Candle[], n1 = 10, n2 = 21) {
   const hlc3 = candles.map(c => (c.high + c.low + c.close) / 3)
-
   const esa = EMA.calculate({ period: n1, values: hlc3 })
   const offset = hlc3.length - esa.length
-
   const d = hlc3.slice(offset).map((v, i) => Math.abs(v - esa[i]))
   const de = EMA.calculate({ period: n1, values: d })
   const offset2 = esa.length - de.length
-
-  const ci = esa.slice(offset2).map((v, i) => (hlc3.slice(offset + offset2)[i] - v) / (0.015 * de[i]))
-  const wt1 = EMA.calculate({ period: n2, values: ci })
-  const wt2 = wt1.slice(wt1.length - 4).reduce((a, b) => a + b, 0) / 4 // 4 periyot SMA
-
-  return { wt1: wt1[wt1.length - 1], wt2, prevWt1: wt1[wt1.length - 2] }
+  const ci = esa.slice(offset2).map((v, i) =>
+    (hlc3.slice(offset + offset2)[i] - v) / (0.015 * de[i])
+  )
+  const wt1arr = EMA.calculate({ period: n2, values: ci })
+  const wt1 = wt1arr[wt1arr.length - 1]
+  const prevWt1 = wt1arr[wt1arr.length - 2]
+  const wt2 = wt1arr.slice(-4).reduce((a, b) => a + b, 0) / 4
+  const prevWt2 = wt1arr.slice(-5, -1).reduce((a, b) => a + b, 0) / 4
+  return { wt1, wt2, prevWt1, prevWt2 }
 }
 
-export type StrategyConfig = {
-  useEmaRegimeFilter: boolean  // EMA21/50/200 toggle
+export function calcFisher(candles: Candle[], period = 9) {
+  const highs = candles.map(c => c.high)
+  const lows = candles.map(c => c.low)
+  const fishArr: number[] = []
+  const trigArr: number[] = []
+  let prevFish = 0
+  let prevValue = 0
+
+  for (let i = period - 1; i < candles.length; i++) {
+    const sliceH = highs.slice(i - period + 1, i + 1)
+    const sliceL = lows.slice(i - period + 1, i + 1)
+    const highest = Math.max(...sliceH)
+    const lowest = Math.min(...sliceL)
+    const range = highest - lowest
+    const hl2 = (candles[i].high + candles[i].low) / 2
+    let value = range > 0 ? 2 * ((hl2 - lowest) / range) - 1 : 0
+    value = Math.max(-0.999, Math.min(0.999, 0.66 * value + 0.67 * prevValue))
+    const fish = 0.5 * Math.log((1 + value) / (1 - value)) + 0.5 * prevFish
+    fishArr.push(fish)
+    trigArr.push(prevFish)
+    prevFish = fish
+    prevValue = value
+  }
+
+  return {
+    fisher: fishArr[fishArr.length - 1],
+    trigger: trigArr[trigArr.length - 1],
+    prevFisher: fishArr[fishArr.length - 2] ?? 0,
+    prevTrigger: trigArr[trigArr.length - 2] ?? 0,
+  }
 }
 
 export type SignalResult = {
   signal: 'LONG' | 'SHORT' | 'NONE'
+  triggerFired: boolean
+  triggerDirection: 'LONG' | 'SHORT' | null
+  fisherActive: boolean
+  notional: number
   indicators: { label: string; value: string }[]
   conditions: { label: string; passed: boolean; value: string; required: string }[]
   missing: { label: string; current: string; target: string; gap: string }[]
   qty: number
+  entryPrice: number
   stopPrice: number
   targetPrice: number
 }
 
-export function evaluate(candles: Candle[], equity: number, config: StrategyConfig): SignalResult {
+export function evaluate(
+  candles: Candle[],
+  equity: number,
+  instrState: InstrumentState,
+  triggerLookback: number,
+): SignalResult {
   const closes = candles.map(c => c.close)
   const highs = candles.map(c => c.high)
   const lows = candles.map(c => c.low)
+  const currentBarTime = candles[candles.length - 1].time
 
-  const ema10 = EMA.calculate({ period: 10, values: closes })
-  const rsi14 = RSI.calculate({ period: 14, values: closes })
-  const atr14 = ATR.calculate({ period: 14, high: highs, low: lows, close: closes })
+  const ema10arr = EMA.calculate({ period: 10, values: closes })
+  const rsi14arr = RSI.calculate({ period: 14, values: closes })
+  const atr14arr = ATR.calculate({ period: 14, high: highs, low: lows, close: closes })
 
   const lastClose = closes[closes.length - 1]
   const prevClose = closes[closes.length - 2]
-  const lastEma10 = ema10[ema10.length - 1]
-  const prevEma10 = ema10[ema10.length - 2]
-  const lastRsi = rsi14[rsi14.length - 1]
-  const lastAtr = atr14[atr14.length - 1]
+  const lastEma10 = ema10arr[ema10arr.length - 1]
+  const prevEma10 = ema10arr[ema10arr.length - 2]
+  const lastRsi = rsi14arr[rsi14arr.length - 1]
+  const lastAtr = atr14arr[atr14arr.length - 1]
 
-  const { wt1, wt2, prevWt1 } = calcWaveTrend(candles)
+  const { wt1, wt2, prevWt1, prevWt2 } = calcWaveTrend(candles)
+  const { fisher, trigger: fishTrig, prevFisher, prevTrigger } = calcFisher(candles)
 
-  // Kesişim tespiti
   const ema10CrossUp = prevClose < prevEma10 && lastClose > lastEma10
   const ema10CrossDown = prevClose > prevEma10 && lastClose < lastEma10
-  const wtCrossUp = prevWt1 < wt2 && wt1 > wt2  // WT1 WT2'yi yukarı kesti (önceki wt2 yaklaşık)
-  const wtCrossDown = prevWt1 > wt2 && wt1 < wt2
+  const wtCrossUp = prevWt1 < prevWt2 && wt1 > wt2
+  const wtCrossDown = prevWt1 > prevWt2 && wt1 < wt2
+  const fisherCrossUp = prevFisher < prevTrigger && fisher > fishTrig
+  const fisherCrossDown = prevFisher > prevTrigger && fisher < fishTrig
 
   const rsiLong = lastRsi > 52
   const rsiShort = lastRsi < 48
 
-  // EMA rejim filtresi (opsiyonel)
-  let regimeLong = true
-  let regimeShort = true
-  let ema21: number | null = null
-  let ema50: number | null = null
-  let ema200: number | null = null
+  // Bu mumda yeni WT tetikleyici ateşlendi mi?
+  const triggerFired = wtCrossUp || wtCrossDown
+  const triggerDirection: 'LONG' | 'SHORT' | null = wtCrossUp ? 'LONG' : wtCrossDown ? 'SHORT' : null
 
-  if (config.useEmaRegimeFilter) {
-    const e21 = EMA.calculate({ period: 21, values: closes })
-    const e50 = EMA.calculate({ period: 50, values: closes })
-    const e200 = EMA.calculate({ period: 200, values: closes })
-    ema21 = e21[e21.length - 1]
-    ema50 = e50[e50.length - 1]
-    ema200 = e200[e200.length - 1]
-    regimeLong = ema50 > ema200
-    regimeShort = ema50 < ema200
+  // Aktif tetikleyici
+  const barMs = 4 * 60 * 60 * 1000
+  const barsSinceTrigger = instrState.trigger_bar_time
+    ? Math.round((currentBarTime - instrState.trigger_bar_time) / barMs)
+    : Infinity
+
+  let activeTriggerDirection: 'LONG' | 'SHORT' | null = null
+  if (triggerFired) {
+    activeTriggerDirection = triggerDirection
+  } else if (instrState.trigger_direction && barsSinceTrigger <= triggerLookback) {
+    activeTriggerDirection = instrState.trigger_direction
   }
 
-  // Risk hesabı
-  const stopDist = 3.5 * lastAtr
-  const qty = (equity * 0.015) / stopDist
+  // Fisher bu mumda uygun mu? (kayıt amaçlı)
+  const fisherActive = activeTriggerDirection === 'LONG'
+    ? fisherCrossUp
+    : activeTriggerDirection === 'SHORT'
+      ? fisherCrossDown
+      : false
+
+  const stopDist = CONFIG.account.stopAtrMult * lastAtr
+  const qty = (equity * CONFIG.account.riskPerTrade) / stopDist
+  const slip = CONFIG.account.slippage
+  const entryPrice = activeTriggerDirection === 'SHORT'
+    ? lastClose * (1 - slip)
+    : lastClose * (1 + slip)
+  const notional = entryPrice * qty
+  const stopPrice = activeTriggerDirection === 'LONG' ? entryPrice - stopDist : entryPrice + stopDist
+  const targetPrice = activeTriggerDirection === 'LONG'
+    ? entryPrice + stopDist * CONFIG.account.rewardRiskRatio
+    : entryPrice - stopDist * CONFIG.account.rewardRiskRatio
 
   const indicators = [
     { label: 'Fiyat', value: lastClose.toFixed(2) },
     { label: 'EMA10', value: lastEma10.toFixed(2) },
     { label: 'RSI14', value: lastRsi.toFixed(1) },
-    { label: 'ATR14', value: lastAtr.toFixed(2) },
+    { label: 'ATR14', value: lastAtr.toFixed(4) },
     { label: 'WT1', value: wt1.toFixed(2) },
     { label: 'WT2', value: wt2.toFixed(2) },
-    ...(config.useEmaRegimeFilter ? [
-      { label: 'EMA21', value: ema21!.toFixed(2) },
-      { label: 'EMA50', value: ema50!.toFixed(2) },
-      { label: 'EMA200', value: ema200!.toFixed(2) },
-    ] : []),
+    { label: 'Fisher', value: fisher.toFixed(2) },
+    { label: 'Fisher Trig', value: fishTrig.toFixed(2) },
   ]
 
-  // LONG değerlendirme
   const longConditions = [
+    { label: 'WT yukarı kesişim (tetikleyici)', passed: activeTriggerDirection === 'LONG', value: wt1.toFixed(2), required: `> ${wt2.toFixed(2)}` },
     { label: 'EMA10 yukarı kesişim', passed: ema10CrossUp, value: lastClose.toFixed(2), required: `> ${lastEma10.toFixed(2)}` },
     { label: 'RSI > 52', passed: rsiLong, value: lastRsi.toFixed(1), required: '> 52' },
-    { label: 'WT1 WT2\'yi yukarı kesti', passed: wtCrossUp, value: wt1.toFixed(2), required: `> ${wt2.toFixed(2)}` },
-    ...(config.useEmaRegimeFilter ? [
-      { label: 'Boğa rejimi (EMA50 > EMA200)', passed: regimeLong, value: ema50?.toFixed(2) ?? '-', required: `> ${ema200?.toFixed(2) ?? '-'}` }
-    ] : []),
   ]
 
   const shortConditions = [
+    { label: 'WT aşağı kesişim (tetikleyici)', passed: activeTriggerDirection === 'SHORT', value: wt1.toFixed(2), required: `< ${wt2.toFixed(2)}` },
     { label: 'EMA10 aşağı kesişim', passed: ema10CrossDown, value: lastClose.toFixed(2), required: `< ${lastEma10.toFixed(2)}` },
     { label: 'RSI < 48', passed: rsiShort, value: lastRsi.toFixed(1), required: '< 48' },
-    { label: 'WT1 WT2\'yi aşağı kesti', passed: wtCrossDown, value: wt1.toFixed(2), required: `< ${wt2.toFixed(2)}` },
-    ...(config.useEmaRegimeFilter ? [
-      { label: 'Ayı rejimi (EMA50 < EMA200)', passed: regimeShort, value: ema50?.toFixed(2) ?? '-', required: `< ${ema200?.toFixed(2) ?? '-'}` }
-    ] : []),
   ]
 
   const isLong = longConditions.every(c => c.passed)
   const isShort = shortConditions.every(c => c.passed)
-
   const signal = isLong ? 'LONG' : isShort ? 'SHORT' : 'NONE'
-  const conditions = isLong || (!isShort) ? longConditions : shortConditions
+  const conditions = activeTriggerDirection === 'SHORT' ? shortConditions : longConditions
 
-  // Ne değişmeli
   const missing = conditions
     .filter(c => !c.passed)
     .map(c => {
       const cur = parseFloat(c.value)
       const req = parseFloat(c.required.replace(/[^0-9.]/g, ''))
-      const gap = Math.abs(cur - req).toFixed(2)
+      const gap = isNaN(cur) || isNaN(req) ? '-' : Math.abs(cur - req).toFixed(2)
       return { label: c.label, current: c.value, target: c.required, gap }
     })
 
-  const stopPrice = signal === 'LONG'
-    ? lastClose - stopDist
-    : lastClose + stopDist
+  return { signal, triggerFired, triggerDirection, fisherActive, notional, indicators, conditions, missing, qty, entryPrice, stopPrice, targetPrice }
+}
 
-  const targetPrice = signal === 'LONG'
-    ? lastClose + stopDist * 3
-    : lastClose - stopDist * 3
+export function calcAdaptiveLookback(trades: { trigger_lookback: number; profit_loss: number }[]): number {
+  if (trades.length < 30) return CONFIG.triggerLookback
 
-  return { signal, indicators, conditions, missing, qty, stopPrice, targetPrice }
+  const byLookback: Record<number, number[]> = {}
+  for (const t of trades) {
+    if (!byLookback[t.trigger_lookback]) byLookback[t.trigger_lookback] = []
+    byLookback[t.trigger_lookback].push(t.profit_loss)
+  }
+
+  let bestLookback = CONFIG.triggerLookback
+  let bestPF = 0
+
+  for (const [lb, pls] of Object.entries(byLookback)) {
+    const wins = pls.filter(p => p > 0).reduce((a, b) => a + b, 0)
+    const losses = Math.abs(pls.filter(p => p <= 0).reduce((a, b) => a + b, 0))
+    const pf = losses > 0 ? wins / losses : wins > 0 ? 999 : 0
+    if (pf > bestPF) { bestPF = pf; bestLookback = parseInt(lb) }
+  }
+
+  return bestLookback
 }
