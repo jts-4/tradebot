@@ -8,27 +8,37 @@ import type { InstrumentState } from '@/lib/types'
 const SYMBOLS = CONFIG.venues.crypto.symbols
 const INTERVAL = CONFIG.venues.crypto.interval
 
+// Bybit sembol formatı: BTCUSDT → BTCUSDT (aynı)
+const BYBIT_INTERVAL: Record<string, string> = {
+  '1h': '60', '2h': '120', '4h': '240', '6h': '360', '12h': '720',
+  '1d': 'D', '1w': 'W', '1m': '1', '3m': '3', '5m': '5', '15m': '15', '30m': '30',
+}
+
 async function fetchCandles(symbol: string): Promise<Candle[]> {
   try {
+    const interval = BYBIT_INTERVAL[INTERVAL] ?? '240'
     const res = await fetch(
-      `https://api1.binance.com/api/v3/klines?symbol=${symbol}&interval=${INTERVAL}&limit=${CONFIG.fetchLimit}`
+      `https://api.bybit.com/v5/market/kline?category=spot&symbol=${symbol}&interval=${interval}&limit=${CONFIG.fetchLimit}`
     )
     if (!res.ok) {
-      console.error(`Binance ${symbol} HTTP ${res.status}`)
+      console.error(`Bybit ${symbol} HTTP ${res.status}`)
       return []
     }
     const data = await res.json()
-    if (!Array.isArray(data)) {
-      console.error(`Binance ${symbol} unexpected response:`, JSON.stringify(data).slice(0, 200))
+    // Bybit: { result: { list: [[startTime, open, high, low, close, volume, turnover], ...] } }
+    // list en yeni → en eski sıralı, ters çevir
+    const list: string[][] = data?.result?.list
+    if (!Array.isArray(list)) {
+      console.error(`Bybit ${symbol} unexpected:`, JSON.stringify(data).slice(0, 200))
       return []
     }
-    return data.map((k: number[]) => ({
-      open: parseFloat(String(k[1])),
-      high: parseFloat(String(k[2])),
-      low: parseFloat(String(k[3])),
-      close: parseFloat(String(k[4])),
-      volume: parseFloat(String(k[5])),
-      time: k[0] as number,
+    return list.reverse().map((k) => ({
+      time: parseInt(k[0]),
+      open: parseFloat(k[1]),
+      high: parseFloat(k[2]),
+      low: parseFloat(k[3]),
+      close: parseFloat(k[4]),
+      volume: parseFloat(k[5]),
     }))
   } catch (e) {
     console.error(`fetchCandles ${symbol} error:`, e)
@@ -39,16 +49,6 @@ async function fetchCandles(symbol: string): Promise<Candle[]> {
 export async function POST(request: Request) {
   if (request.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  // Binance bağlantı testi
-  try {
-    const test = await fetch('https://api1.binance.com/api/v3/ping')
-    const testData = await test.json()
-    console.log('Binance ping:', testData)
-  } catch (e) {
-    console.error('Binance ping failed:', e)
-    return NextResponse.json({ error: 'Binance API erişilemiyor', detail: String(e) }, { status: 500 })
   }
 
   // Tek sorguda tüm state'i çek
