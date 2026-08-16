@@ -12,13 +12,15 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const { i: selectedInstrument = 'BTCUSDT' } = await searchParams
 
   const [
+    { data: openTrades },
     { data: trades },
     { data: missed },
     { data: decisions },
     { data: statusRows },
     { data: snapshots },
   ] = await Promise.all([
-    supabase.from('trades').select('*').order('created_at', { ascending: false }).limit(50),
+    supabase.from('trades').select('*').is('closed_at', null).order('created_at', { ascending: false }),
+    supabase.from('trades').select('*').not('closed_at', 'is', null).order('created_at', { ascending: false }).limit(50),
     supabase.from('missed_opportunities').select('*').order('created_at', { ascending: false }).limit(20),
     supabase.from('decisions').select('*').eq('symbol', selectedInstrument).order('created_at', { ascending: false }).limit(20),
     supabase.from('bot_status').select('*').eq('id', 1),
@@ -36,6 +38,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const totalReturn = snap?.total_return ?? 0
   const usagePct = equity > 0 ? Math.round((allocated / equity) * 100) : 0
 
+  const openList = (openTrades ?? []) as Trade[]
   const tradeList = (trades ?? []) as Trade[]
   const missedList = (missed ?? []) as MissedOpportunity[]
   const decisionList = (decisions ?? []) as Decision[]
@@ -111,7 +114,44 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         ))}
       </div>
 
-      {/* 3. Son karar kartı */}
+      {/* 3. Açık Pozisyonlar */}
+      <div className="bg-gray-900 rounded-xl p-4">
+        <h2 className="font-semibold mb-3">Açık Pozisyonlar</h2>
+        {openList.length === 0 ? (
+          <p className="text-gray-500 text-sm">Açık pozisyon yok.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-gray-400 border-b border-gray-800">
+                  <th className="pb-2 pr-4">Sembol</th>
+                  <th className="pb-2 pr-4">Yön</th>
+                  <th className="pb-2 pr-4">Giriş</th>
+                  <th className="pb-2 pr-4">Stop</th>
+                  <th className="pb-2 pr-4">Hedef</th>
+                  <th className="pb-2 pr-4">Notional</th>
+                  <th className="pb-2">Tarih (İST)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {openList.map(t => (
+                  <tr key={t.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                    <td className="py-2 pr-4 font-medium">{t.symbol}</td>
+                    <td className={`py-2 pr-4 font-semibold ${t.side === 'BUY' ? 'text-green-400' : 'text-red-400'}`}>{t.side}</td>
+                    <td className="py-2 pr-4 font-mono">${t.entry_price?.toLocaleString()}</td>
+                    <td className="py-2 pr-4 font-mono text-red-400">${t.stop_price?.toLocaleString()}</td>
+                    <td className="py-2 pr-4 font-mono text-green-400">${t.target_price?.toLocaleString()}</td>
+                    <td className="py-2 pr-4 font-mono text-gray-400">${t.notional?.toLocaleString()}</td>
+                    <td className="py-2 text-gray-500 text-xs">{toIST(t.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* 4. Son karar kartı */}
       {lastDecision ? (
         <div className="bg-gray-900 rounded-xl p-4 space-y-4">
           <div className="flex items-center justify-between">
@@ -184,7 +224,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </div>
       )}
 
-      {/* 4. Fiyat grafiği placeholder (gerçek grafik için Recharts eklenecek) */}
+      {/* 5. Fiyat grafiği placeholder (gerçek grafik için Recharts eklenecek) */}
       <div className="bg-gray-900 rounded-xl p-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-semibold">{selectedInstrument} Grafik</h2>
@@ -195,7 +235,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </div>
       </div>
 
-      {/* 5. Kaçan fırsatlar */}
+      {/* 6. Kaçan fırsatlar */
       <div className="bg-gray-900 rounded-xl p-4">
         <h2 className="font-semibold mb-3">Kaçan Fırsatlar</h2>
         {missedList.length === 0 ? (
@@ -230,7 +270,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         )}
       </div>
 
-      {/* 6. İşlem günlüğü + equity eğrisi */}
+      {/* 7. İşlem günlüğü + equity eğrisi */
       <div className="grid md:grid-cols-2 gap-4">
         {/* İşlem günlüğü */}
         <div className="bg-gray-900 rounded-xl p-4">
@@ -289,7 +329,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </div>
       </div>
 
-      {/* 7. Bot durumu */}
+      {/* 8. Bot durumu */
       <div className="bg-gray-900 rounded-xl p-4">
         <h2 className="font-semibold mb-3">Bot Durumu</h2>
         {status ? (
@@ -321,7 +361,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         )}
       </div>
 
-      {/* 8. Strateji kartı */}
+      {/* 9. Strateji kartı */}
       <div className="bg-gray-900 rounded-xl p-4 space-y-3">
         <h2 className="font-semibold">Strateji</h2>
         <div className="text-sm text-gray-300 space-y-1">
