@@ -35,16 +35,17 @@ create table if not exists decisions (
   created_at timestamptz default now()
 );
 
--- Bot durumu (tek satır, upsert ile güncellenir)
+-- Bot durumu
 create table if not exists bot_status (
   id int primary key default 1,
   last_run timestamptz not null default now(),
   next_run timestamptz not null default now(),
   halted boolean default false,
-  halt_reason text
+  halt_reason text,
+  use_ema_filter boolean default false
 );
 
--- Hesap anlık görüntüsü (en son satır kullanılır)
+-- Hesap anlık görüntüsü
 create table if not exists account_snapshots (
   id uuid default gen_random_uuid() primary key,
   equity numeric not null default 0,
@@ -55,6 +56,6 @@ create table if not exists account_snapshots (
 );
 
 -- Başlangıç bot_status satırı
-insert into bot_status (id, last_run, next_run, halted)
-values (1, now(), now() + interval '5 minutes', false)
+insert into bot_status (id, last_run, next_run, halted, use_ema_filter)
+values (1, now(), now() + interval '1 hour', false, false)
 on conflict (id) do nothing;

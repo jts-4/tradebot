@@ -38,6 +38,7 @@ export type BotStatus = {
   next_run: string       // UTC
   halted: boolean
   halt_reason: string | null
+  use_ema_filter: boolean
 }
 
 export type AccountSnapshot = {

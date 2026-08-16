@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
-import { toIST, toISTTime, ageMinutes, TZ } from '@/lib/utils'
+import { toIST, toISTTime, ageMinutes } from '@/lib/utils'
 import type { Trade, MissedTrade, Decision, BotStatus, AccountSnapshot } from '@/lib/types'
+import EmaToggle from '@/components/EmaToggle'
 
 const INSTRUMENTS = {
   Kripto: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'],
@@ -322,16 +323,18 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       </div>
 
       {/* 8. Strateji kartı */}
-      <div className="bg-gray-900 rounded-xl p-4 space-y-2">
+      <div className="bg-gray-900 rounded-xl p-4 space-y-3">
         <h2 className="font-semibold">Strateji</h2>
         <div className="text-sm text-gray-300 space-y-1">
-          <p>• Trend filtresi: EMA21 &gt; EMA50 &gt; EMA200</p>
-          <p>• Momentum: RSI 48–52 ölü bandının üstünde</p>
-          <p>• Giriş: mum kapanışında, sinyal onaylandıktan sonra</p>
-          <p>• Çıkış: hedef %R veya stop-loss tetiklendiğinde</p>
-          <p>• Kontrol sıklığı: 5 dakikada bir (Vercel Cron)</p>
+          <p>• Giriş LONG: kapanış EMA10&apos;u yukarı keser <strong>VE</strong> RSI14 &gt; 52 <strong>VE</strong> WT1 WT2&apos;yi yukarı keser</p>
+          <p>• Giriş SHORT: bunların aynası — RSI14 &lt; 48, aşağı kesişimler</p>
+          <p>• Ölü bant: 48 ≤ RSI ≤ 52 → işlem yok</p>
+          <p>• Stop: giriş ∓ 3.5 × ATR14 | Hedef: 1:3</p>
+          <p>• Boyut: equity × %1.5 / (3.5 × ATR14)</p>
+          <p>• Kontrol: her saatin 20. dakikasında (GitHub Actions)</p>
         </div>
-        <div className="mt-3 text-xs text-yellow-400 border border-yellow-700 rounded p-2">
+        <EmaToggle initial={status?.use_ema_filter ?? false} />
+        <div className="text-xs text-yellow-400 border border-yellow-700 rounded p-2">
           ⚠ KÂĞIT ÜZERİNDE — eğitim amaçlı, yatırım tavsiyesi değil
         </div>
       </div>
