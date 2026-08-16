@@ -11,7 +11,7 @@ const INTERVAL = CONFIG.venues.crypto.interval
 async function fetchCandles(symbol: string): Promise<Candle[]> {
   try {
     const res = await fetch(
-      `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${INTERVAL}&limit=${CONFIG.fetchLimit}`
+      `https://api1.binance.com/api/v3/klines?symbol=${symbol}&interval=${INTERVAL}&limit=${CONFIG.fetchLimit}`
     )
     if (!res.ok) {
       console.error(`Binance ${symbol} HTTP ${res.status}`)
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
 
   // Binance bağlantı testi
   try {
-    const test = await fetch('https://api.binance.com/api/v3/ping')
+    const test = await fetch('https://api1.binance.com/api/v3/ping')
     const testData = await test.json()
     console.log('Binance ping:', testData)
   } catch (e) {
