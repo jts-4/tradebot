@@ -10,7 +10,7 @@ const INTERVAL = CONFIG.venues.crypto.interval
 
 async function fetchCandles(symbol: string): Promise<Candle[]> {
   const res = await fetch(
-    `https://data-api.binance.vision/api/v3/klines?symbol=${symbol}&interval=${INTERVAL}&limit=${CONFIG.fetchLimit}`
+    `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${INTERVAL}&limit=${CONFIG.fetchLimit}`
   )
   const data = await res.json()
   return (data as number[][]).map(k => ({
