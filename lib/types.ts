@@ -57,10 +57,12 @@ export type BotStatus = {
   halted: boolean
   halt_reason: string | null
   use_ema_filter: boolean
+  use_rsi_filter: boolean
   consecutive_losses: number
   daily_loss: number
   daily_loss_date: string
   peak_equity: number
+  trigger_lookback: number
 }
 
 export type AccountSnapshot = {

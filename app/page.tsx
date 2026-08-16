@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase'
 import { toIST, toISTTime, ageMinutes } from '@/lib/utils'
 import type { Trade, MissedOpportunity, Decision, BotStatus, AccountSnapshot } from '@/lib/types'
 import EmaToggle from '@/components/EmaToggle'
+import RsiToggle from '@/components/RsiToggle'
 
 const INSTRUMENTS = {
   Kripto: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT', 'SUIUSDT', 'HBARUSDT'],
@@ -332,6 +333,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           <p>• Kontrol: her saatin 20. dakikasında (GitHub Actions)</p>
         </div>
         <EmaToggle initial={status?.use_ema_filter ?? false} />
+        <RsiToggle initial={status?.use_rsi_filter ?? false} />
         <div className="text-xs text-yellow-400 border border-yellow-700 rounded p-2">
           ⚠ KÂĞIT ÜZERİNDE — eğitim amaçlı, yatırım tavsiyesi değil
         </div>

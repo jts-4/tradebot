@@ -81,6 +81,7 @@ export function evaluate(
   equity: number,
   instrState: InstrumentState,
   triggerLookback: number,
+  useRsiFilter = false,
 ): SignalResult {
   const closes = candles.map(c => c.close)
   const highs = candles.map(c => c.high)
@@ -161,13 +162,13 @@ export function evaluate(
   const longConditions = [
     { label: 'WT yukarı kesişim (tetikleyici)', passed: activeTriggerDirection === 'LONG', value: wt1.toFixed(2), required: `> ${wt2.toFixed(2)}` },
     { label: 'EMA10 yukarı kesişim', passed: ema10CrossUp, value: lastClose.toFixed(2), required: `> ${lastEma10.toFixed(2)}` },
-    { label: 'RSI > 52', passed: rsiLong, value: lastRsi.toFixed(1), required: '> 52' },
+    ...(useRsiFilter ? [{ label: 'RSI > 52', passed: rsiLong, value: lastRsi.toFixed(1), required: '> 52' }] : []),
   ]
 
   const shortConditions = [
     { label: 'WT aşağı kesişim (tetikleyici)', passed: activeTriggerDirection === 'SHORT', value: wt1.toFixed(2), required: `< ${wt2.toFixed(2)}` },
     { label: 'EMA10 aşağı kesişim', passed: ema10CrossDown, value: lastClose.toFixed(2), required: `< ${lastEma10.toFixed(2)}` },
-    { label: 'RSI < 48', passed: rsiShort, value: lastRsi.toFixed(1), required: '< 48' },
+    ...(useRsiFilter ? [{ label: 'RSI < 48', passed: rsiShort, value: lastRsi.toFixed(1), required: '< 48' }] : []),
   ]
 
   const isLong = longConditions.every(c => c.passed)
