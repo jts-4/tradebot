@@ -249,7 +249,7 @@ export async function POST(request: Request) {
       fisher_active: result.fisherActive ?? false,
     })
 
-    entryResults.push({ symbol, signal: result.signal, tradeErr: tradeErr?.message ?? null })
+    entryResults.push({ symbol, signal: result.signal })
   }
 
   // Adaptive lookback güncelle (30 işlem dolmuşsa)
@@ -257,9 +257,9 @@ export async function POST(request: Request) {
     (completedTrades ?? []) as { trigger_lookback: number; profit_loss: number }[]
   )
 
-  // Equity snapshot
-  const newAllocated = (await supabase.from('trades').select('notional').is('closed_at', null)).data
-    ?.reduce((s: number, t: { notional: number }) => s + t.notional, 0) ?? 0
+  // Equity snapshot — allocated'ı her zaman trades tablosundan hesapla
+  const { data: openForSnap } = await supabase.from('trades').select('notional').is('closed_at', null)
+  const newAllocated = (openForSnap ?? []).reduce((s: number, t: { notional: number }) => s + t.notional, 0)
   const totalPL = (completedTrades ?? []).reduce((s: number, t: { profit_loss: number }) => s + (t.profit_loss ?? 0), 0)
   const newEquity = CONFIG.account.startingEquity + totalPL
   const totalReturn = ((newEquity - CONFIG.account.startingEquity) / CONFIG.account.startingEquity) * 100
