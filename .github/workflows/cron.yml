@@ -1,0 +1,15 @@
+name: Bot Cron
+
+on:
+  schedule:
+    - cron: '20 * * * *'  # her saatin 20. dakikasında
+  workflow_dispatch:        # manuel tetikleme için
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Botu çalıştır
+        run: |
+          curl -s -X GET "${{ secrets.VERCEL_APP_URL }}/api/cron" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
