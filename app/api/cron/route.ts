@@ -28,6 +28,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  // Binance bağlantı testi
+  try {
+    const test = await fetch('https://api.binance.com/api/v3/ping')
+    const testData = await test.json()
+    console.log('Binance ping:', testData)
+  } catch (e) {
+    console.error('Binance ping failed:', e)
+    return NextResponse.json({ error: 'Binance API erişilemiyor', detail: String(e) }, { status: 500 })
+  }
+
   // Tek sorguda tüm state'i çek
   const [
     { data: statusRow },

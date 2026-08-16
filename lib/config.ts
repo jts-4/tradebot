@@ -24,8 +24,8 @@ export const CONFIG = {
       longOnly: true,
     },
   },
-  fetchLimit: 1000 as number,   // §11.1 — EMA200 ısınması için
-  minCandles: 800 as number,
+  fetchLimit: 500 as number,
+  minCandles: 50 as number,
   triggerLookback: 3 as number, // tetikleyici kaç mum geçerliliğini korur
   strategyVersion: '1.0.0' as string,
 } as const
