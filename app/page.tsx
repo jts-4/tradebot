@@ -235,7 +235,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </div>
       </div>
 
-      {/* 6. Kaçan fırsatlar */
+      {/* 6. Kaçan fırsatlar */}
       <div className="bg-gray-900 rounded-xl p-4">
         <h2 className="font-semibold mb-3">Kaçan Fırsatlar</h2>
         {missedList.length === 0 ? (
@@ -270,7 +270,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         )}
       </div>
 
-      {/* 7. İşlem günlüğü + equity eğrisi */
+      {/* 7. İşlem günlüğü + equity eğrisi */}
       <div className="grid md:grid-cols-2 gap-4">
         {/* İşlem günlüğü */}
         <div className="bg-gray-900 rounded-xl p-4">
@@ -329,7 +329,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </div>
       </div>
 
-      {/* 8. Bot durumu */
+      {/* 8. Bot durumu */}
       <div className="bg-gray-900 rounded-xl p-4">
         <h2 className="font-semibold mb-3">Bot Durumu</h2>
         {status ? (
