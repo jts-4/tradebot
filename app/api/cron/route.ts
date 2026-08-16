@@ -181,7 +181,7 @@ export async function POST(request: Request) {
       trigger_direction: null,
     }
 
-    const result = evaluate(candles, equity, instrState, triggerLookback, statusRow?.use_rsi_filter ?? false)
+    const result = evaluate(candles, equity, available, instrState, triggerLookback, statusRow?.use_rsi_filter ?? false)
 
     // Enstrüman state güncelle
     if (result.triggerFired) {

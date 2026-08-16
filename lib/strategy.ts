@@ -79,6 +79,7 @@ export type SignalResult = {
 export function evaluate(
   candles: Candle[],
   equity: number,
+  available: number,
   instrState: InstrumentState,
   triggerLookback: number,
   useRsiFilter = false,
@@ -142,9 +143,14 @@ export function evaluate(
     ? lastClose * (1 - slip)
     : lastClose * (1 + slip)
   const rawQty = (equity * CONFIG.account.riskPerTrade) / stopDist
-  const maxNotional = equity * CONFIG.account.maxNotionalPct
+  const maxNotional = available * CONFIG.account.maxNotionalPct
   const qty = Math.min(rawQty, maxNotional / entryPrice)
   const notional = qty * entryPrice
+
+  // Minimum notional kontrolü — sinyal var ama işlem küçükse NONE dön
+  if (notional < CONFIG.account.minNotional) {
+    return { signal: 'NONE', triggerFired, triggerDirection, fisherActive, notional, indicators, conditions, missing, qty, entryPrice, stopPrice: 0, targetPrice: 0 }
+  }
   const stopPrice = activeTriggerDirection === 'LONG' ? entryPrice - stopDist : entryPrice + stopDist
   const targetPrice = activeTriggerDirection === 'LONG'
     ? entryPrice + stopDist * CONFIG.account.rewardRiskRatio
