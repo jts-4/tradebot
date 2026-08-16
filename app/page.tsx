@@ -4,8 +4,7 @@ import type { Trade, MissedOpportunity, Decision, BotStatus, AccountSnapshot } f
 import EmaToggle from '@/components/EmaToggle'
 
 const INSTRUMENTS = {
-  Kripto: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'],
-  ABD: ['AAPL', 'TSLA', 'NVDA'],
+  Kripto: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT', 'SUIUSDT', 'HBARUSDT'],
 }
 
 export default async function Dashboard({ searchParams }: { searchParams: Promise<{ i?: string }> }) {
