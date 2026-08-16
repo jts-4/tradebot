@@ -9,18 +9,31 @@ const SYMBOLS = CONFIG.venues.crypto.symbols
 const INTERVAL = CONFIG.venues.crypto.interval
 
 async function fetchCandles(symbol: string): Promise<Candle[]> {
-  const res = await fetch(
-    `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${INTERVAL}&limit=${CONFIG.fetchLimit}`
-  )
-  const data = await res.json()
-  return (data as number[][]).map(k => ({
-    open: parseFloat(String(k[1])),
-    high: parseFloat(String(k[2])),
-    low: parseFloat(String(k[3])),
-    close: parseFloat(String(k[4])),
-    volume: parseFloat(String(k[5])),
-    time: k[0] as number,
-  }))
+  try {
+    const res = await fetch(
+      `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${INTERVAL}&limit=${CONFIG.fetchLimit}`
+    )
+    if (!res.ok) {
+      console.error(`Binance ${symbol} HTTP ${res.status}`)
+      return []
+    }
+    const data = await res.json()
+    if (!Array.isArray(data)) {
+      console.error(`Binance ${symbol} unexpected response:`, JSON.stringify(data).slice(0, 200))
+      return []
+    }
+    return data.map((k: number[]) => ({
+      open: parseFloat(String(k[1])),
+      high: parseFloat(String(k[2])),
+      low: parseFloat(String(k[3])),
+      close: parseFloat(String(k[4])),
+      volume: parseFloat(String(k[5])),
+      time: k[0] as number,
+    }))
+  } catch (e) {
+    console.error(`fetchCandles ${symbol} error:`, e)
+    return []
+  }
 }
 
 export async function POST(request: Request) {
@@ -73,10 +86,16 @@ export async function POST(request: Request) {
   )
 
   const candleMap: Record<string, Candle[]> = {}
+  const candleDebug: Record<string, number> = {}
   SYMBOLS.forEach((s, i) => {
     const r = candleResults[i]
-    if (r.status === 'fulfilled' && r.value.length >= CONFIG.minCandles) {
-      candleMap[s] = r.value
+    if (r.status === 'fulfilled') {
+      candleDebug[s] = r.value.length
+      if (r.value.length >= CONFIG.minCandles) {
+        candleMap[s] = r.value
+      }
+    } else {
+      candleDebug[s] = -1
     }
   })
 
@@ -275,5 +294,5 @@ export async function POST(request: Request) {
     }),
   ])
 
-  return NextResponse.json({ ok: true, exits: exitResults, entries: entryResults, triggerLookback: newLookback, candleSymbols: Object.keys(candleMap) })
+  return NextResponse.json({ ok: true, exits: exitResults, entries: entryResults, triggerLookback: newLookback, candleSymbols: Object.keys(candleMap), candleDebug })
 }
