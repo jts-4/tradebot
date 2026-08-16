@@ -233,7 +233,7 @@ export async function POST(request: Request) {
     }
 
     // Kâğıt işlem aç
-    await supabase.from('trades').insert({
+    const { error: tradeErr } = await supabase.from('trades').insert({
       symbol,
       side: result.signal === 'LONG' ? 'BUY' : 'SELL',
       entry_price: result.entryPrice,
@@ -249,7 +249,7 @@ export async function POST(request: Request) {
       fisher_active: result.fisherActive ?? false,
     })
 
-    entryResults.push({ symbol, signal: result.signal })
+    entryResults.push({ symbol, signal: result.signal, tradeErr: tradeErr?.message ?? null })
   }
 
   // Adaptive lookback güncelle (30 işlem dolmuşsa)
