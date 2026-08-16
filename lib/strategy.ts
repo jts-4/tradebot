@@ -137,12 +137,14 @@ export function evaluate(
       : false
 
   const stopDist = CONFIG.account.stopAtrMult * lastAtr
-  const qty = (equity * CONFIG.account.riskPerTrade) / stopDist
   const slip = CONFIG.account.slippage
   const entryPrice = activeTriggerDirection === 'SHORT'
     ? lastClose * (1 - slip)
     : lastClose * (1 + slip)
-  const notional = entryPrice * qty
+  const rawQty = (equity * CONFIG.account.riskPerTrade) / stopDist
+  const maxNotional = equity * CONFIG.account.maxNotionalPct
+  const qty = Math.min(rawQty, maxNotional / entryPrice)
+  const notional = qty * entryPrice
   const stopPrice = activeTriggerDirection === 'LONG' ? entryPrice - stopDist : entryPrice + stopDist
   const targetPrice = activeTriggerDirection === 'LONG'
     ? entryPrice + stopDist * CONFIG.account.rewardRiskRatio
