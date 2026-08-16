@@ -275,5 +275,5 @@ export async function POST(request: Request) {
     }),
   ])
 
-  return NextResponse.json({ ok: true, exits: exitResults, entries: entryResults, triggerLookback: newLookback })
+  return NextResponse.json({ ok: true, exits: exitResults, entries: entryResults, triggerLookback: newLookback, candleSymbols: Object.keys(candleMap) })
 }
