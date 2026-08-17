@@ -90,6 +90,8 @@ export function evaluate(
   const currentBarTime = candles[candles.length - 1].time
 
   const ema10arr = EMA.calculate({ period: 11, values: closes })
+  const ema50arr = EMA.calculate({ period: 50, values: closes })
+  const ema200arr = EMA.calculate({ period: 200, values: closes })
   const rsi14arr = RSI.calculate({ period: 14, values: closes })
   const atr14arr = ATR.calculate({ period: 14, high: highs, low: lows, close: closes })
 
@@ -97,6 +99,8 @@ export function evaluate(
   const prevClose = closes[closes.length - 2]
   const lastEma10 = ema10arr[ema10arr.length - 1]
   const prevEma10 = ema10arr[ema10arr.length - 2]
+  const lastEma50 = ema50arr[ema50arr.length - 1]
+  const lastEma200 = ema200arr[ema200arr.length - 1]
   const lastRsi = rsi14arr[rsi14arr.length - 1]
   const lastAtr = atr14arr[atr14arr.length - 1]
 
@@ -157,6 +161,8 @@ export function evaluate(
   const indicators = [
     { label: 'Fiyat', value: lastClose.toFixed(2) },
     { label: 'EMA11', value: lastEma10.toFixed(2) },
+    { label: 'EMA50', value: lastEma50.toFixed(2) },
+    { label: 'EMA200', value: lastEma200.toFixed(2) },
     { label: 'RSI14', value: lastRsi.toFixed(1) },
     { label: 'ATR14', value: lastAtr.toFixed(4) },
     { label: 'WT1', value: wt1.toFixed(2) },
@@ -167,13 +173,17 @@ export function evaluate(
 
   const longConditions = [
     { label: 'WT yukarı kesişim (tetikleyici)', passed: activeTriggerDirection === 'LONG', value: wt1.toFixed(2), required: `> ${wt2.toFixed(2)}` },
-    { label: 'EMA10 yukarı kesişim', passed: ema10CrossUp, value: lastClose.toFixed(2), required: `> ${lastEma10.toFixed(2)}` },
+    { label: 'EMA11 yukarı kesişim', passed: ema10CrossUp, value: lastClose.toFixed(2), required: `> ${lastEma10.toFixed(2)}` },
+    { label: 'Fiyat EMA50 üzerinde', passed: lastClose > lastEma50, value: lastClose.toFixed(2), required: `> ${lastEma50.toFixed(2)}` },
+    { label: 'Fiyat EMA200 üzerinde', passed: lastClose > lastEma200, value: lastClose.toFixed(2), required: `> ${lastEma200.toFixed(2)}` },
     ...(useRsiFilter ? [{ label: 'RSI > 52', passed: rsiLong, value: lastRsi.toFixed(1), required: '> 52' }] : []),
   ]
 
   const shortConditions = [
     { label: 'WT aşağı kesişim (tetikleyici)', passed: activeTriggerDirection === 'SHORT', value: wt1.toFixed(2), required: `< ${wt2.toFixed(2)}` },
-    { label: 'EMA10 aşağı kesişim', passed: ema10CrossDown, value: lastClose.toFixed(2), required: `< ${lastEma10.toFixed(2)}` },
+    { label: 'EMA11 aşağı kesişim', passed: ema10CrossDown, value: lastClose.toFixed(2), required: `< ${lastEma10.toFixed(2)}` },
+    { label: 'Fiyat EMA50 altında', passed: lastClose < lastEma50, value: lastClose.toFixed(2), required: `< ${lastEma50.toFixed(2)}` },
+    { label: 'Fiyat EMA200 altında', passed: lastClose < lastEma200, value: lastClose.toFixed(2), required: `< ${lastEma200.toFixed(2)}` },
     ...(useRsiFilter ? [{ label: 'RSI < 48', passed: rsiShort, value: lastRsi.toFixed(1), required: '< 48' }] : []),
   ]
 
