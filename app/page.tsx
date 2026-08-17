@@ -1,8 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { toIST, toISTTime, ageMinutes } from '@/lib/utils'
+import { CONFIG } from '@/lib/config'
 import type { Trade, MissedOpportunity, Decision, BotStatus, AccountSnapshot } from '@/lib/types'
-import EmaToggle from '@/components/EmaToggle'
-import RsiToggle from '@/components/RsiToggle'
 
 const INSTRUMENTS = {
   Kripto: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT', 'SUIUSDT', 'HBARUSDT'],
@@ -369,17 +368,41 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
 
       {/* 9. Strateji kartı */}
       <div className="bg-gray-900 rounded-xl p-4 space-y-3">
-        <h2 className="font-semibold">Strateji</h2>
-        <div className="text-sm text-gray-300 space-y-1">
-          <p>• <strong>Tetikleyici</strong>: 2h WaveTrend WT1 WT2&apos;yi keser (3 mum geçerli)</p>
-          <p>• <strong>Giriş LONG</strong>: 4h EMA11 yukarı kesişim + fiyat EMA50 &amp; EMA200 üzerinde</p>
-          <p>• <strong>Giriş SHORT</strong>: 4h EMA11 aşağı kesişim + fiyat EMA50 &amp; EMA200 altında</p>
-          <p>• <strong>Çıkış</strong>: Stop Loss (3×ATR) | Take Profit (3×RR) | Fisher ters kesişim | LONG&apos;da EMA11 altı kapanış</p>
-          <p>• <strong>Pozisyon boyutu</strong>: Kullanılabilir sermayenin %20-%30&apos;u, min $1,000</p>
-          <p>• <strong>Kontrol</strong>: Her saatin 23. dakikasında (cron-job.org)</p>
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold">Strateji — v{CONFIG.strategyVersion}</h2>
+          <span className="text-xs text-gray-500">Her sembol bağımsız</span>
         </div>
-        <EmaToggle initial={status?.use_ema_filter ?? false} />
-        <RsiToggle initial={status?.use_rsi_filter ?? false} />
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-gray-400 border-b border-gray-800">
+                <th className="pb-2 pr-4">Sembol</th>
+                <th className="pb-2 pr-4">Kombinasyon</th>
+                <th className="pb-2 pr-4">Interval</th>
+                <th className="pb-2 pr-4">SL</th>
+                <th className="pb-2">TP</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(CONFIG.venues.symbolConfig).map(([sym, cfg]) => (
+                <tr key={sym} className={`border-b border-gray-800/50 ${
+                  selectedInstrument === sym ? 'bg-blue-900/20' : 'hover:bg-gray-800/30'
+                }`}>
+                  <td className="py-2 pr-4 font-medium">{sym}</td>
+                  <td className="py-2 pr-4 font-mono text-xs text-blue-300">{cfg.combo}</td>
+                  <td className="py-2 pr-4 text-gray-400">{cfg.interval}</td>
+                  <td className="py-2 pr-4 text-red-400">{cfg.slMult}×ATR</td>
+                  <td className="py-2 text-green-400">{cfg.tpRatio}×RR</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="text-sm text-gray-400 space-y-1">
+          <p>• <strong>Çıkış</strong>: Stop Loss | Take Profit | Fisher ters kesişim | EMA11 altı kapanış</p>
+          <p>• <strong>Risk</strong>: İşlem başına sermayenin %{(CONFIG.account.riskPerTrade * 100).toFixed(0)}&apos;i</p>
+          <p>• <strong>Kontrol</strong>: Her saatin 20. ve 50. dakikasında</p>
+        </div>
         <div className="text-xs text-yellow-400 border border-yellow-700 rounded p-2">
           ⚠ KÂĞIT ÜZERİNDE — eğitim amaçlı, yatırım tavsiyesi değil
         </div>
