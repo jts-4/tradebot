@@ -56,7 +56,6 @@ export async function POST(request: Request) {
     supabase.from('instrument_state').select('*'),
     supabase.from('trades').select('trigger_lookback, profit_loss').not('profit_loss', 'is', null),
   ])
-
   // Halt kontrolü
   if (statusRow?.halted) {
     return NextResponse.json({ ok: false, reason: 'Bot durduruldu: ' + statusRow.halt_reason })
@@ -123,7 +122,6 @@ export async function POST(request: Request) {
     const fisherExitLong = trade.side === 'BUY' && prevFisher > prevTrigger && fisher < fishTrig
     const fisherExitShort = trade.side === 'SELL' && prevFisher < prevTrigger && fisher > fishTrig
 
-    // EMA10 çıkış kontrolü (sadece LONG)
     const ema10arr = EMA.calculate({ period: 11, values: candles.map(c => c.close) })
     const lastEma10 = ema10arr[ema10arr.length - 1]
     const ema10ExitLong = trade.side === 'BUY' && lastCandle.close < lastEma10
@@ -181,7 +179,6 @@ export async function POST(request: Request) {
     }
 
     const result = evaluate(candles, equity, available, instrState, triggerLookback)
-
     const lastCandle = candles[candles.length - 1]
     const candleOpen = new Date(lastCandle.time).toISOString()
     const candleClose = new Date(lastCandle.time + 4 * 3600000).toISOString()

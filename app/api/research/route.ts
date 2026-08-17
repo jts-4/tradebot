@@ -72,7 +72,6 @@ function calcOrderBlock(candles: Candle[], i: number, lookback = 5): { bullOB: b
 type CondKey = 'WT' | 'Fisher' | 'RSI' | 'EMA11' | 'FVG' | 'BoS' | 'CHoCH' | 'OB'
 
 const STARTING_EQUITY = 10000
-const RISK_PER_TRADE = 0.015
 const COMMISSION = 0.001
 
 function backtestCombo(
@@ -80,14 +79,21 @@ function backtestCombo(
   combo: CondKey[],
   slMult: number,
   tpRatio: number,
+  riskPerTrade = 0.015,
+  emaFilter = false,
 ): { trades: number; wins: number; winRate: number; profitFactor: number; totalPL: number; realPL: number; finalEquity: number; returnPct: number; weeklyReturnPct: number; avgBars: number } {
   const closes = candles.map(c => c.close)
   const highs = candles.map(c => c.high)
   const lows = candles.map(c => c.low)
 
   const ema11All = EMA.calculate({ period: 11, values: closes })
+  const ema50All = EMA.calculate({ period: 50, values: closes })
+  const ema200All = EMA.calculate({ period: 200, values: closes })
   const rsi14All = RSI.calculate({ period: 14, values: closes })
   const atr14All = ATR.calculate({ period: 14, high: highs, low: lows, close: closes })
+
+  const ema50Offset = closes.length - ema50All.length
+  const ema200Offset = closes.length - ema200All.length
 
   const ema11Offset = closes.length - ema11All.length
   const rsiOffset = closes.length - rsi14All.length
@@ -102,6 +108,8 @@ function backtestCombo(
     const ema11Idx = i - ema11Offset
     const rsiIdx = i - rsiOffset
     const atrIdx = i - atrOffset
+    const ema50Idx = i - ema50Offset
+    const ema200Idx = i - ema200Offset
     if (ema11Idx < 1 || rsiIdx < 1 || atrIdx < 0) continue
 
     const lastClose = closes[i]
@@ -140,10 +148,18 @@ function backtestCombo(
       OB: bearOB,
     }
 
-    const isLong = combo.every(k => longSignals[k])
-    const isShort = combo.every(k => shortSignals[k])
+    let isLong = combo.every(k => longSignals[k])
+    let isShort = combo.every(k => shortSignals[k])
     if (!isLong && !isShort) continue
     if (isLong && isShort) continue
+
+    if (emaFilter && ema50Idx >= 0 && ema200Idx >= 0) {
+      const ema50 = ema50All[ema50Idx]
+      const ema200 = ema200All[ema200Idx]
+      if (isLong && (closes[i] < ema50 || closes[i] < ema200)) isLong = false
+      if (isShort && (closes[i] > ema50 || closes[i] > ema200)) isShort = false
+      if (!isLong && !isShort) continue
+    }
 
     const entry = lastClose
     const stopDist = slMult * lastAtr
@@ -161,8 +177,7 @@ function backtestCombo(
       const fisherExit = isLong ? pf > pt && ff < ft : pf < pt && ff > ft
       const ema11Exit = isLong && c.close < futureLastEma11
 
-      const stopDist2 = slMult * ATR.calculate({ period: 14, high: highs.slice(0, j + 1), low: lows.slice(0, j + 1), close: closes.slice(0, j + 1) }).slice(-1)[0]
-      const riskAmt = equity * RISK_PER_TRADE
+      const riskAmt = equity * riskPerTrade
       const qty = riskAmt / (slMult * lastAtr)
       const notional = qty * entry
       const comm = notional * COMMISSION * 2
@@ -252,22 +267,37 @@ export async function GET(request: Request) {
     avgBars: number
   }[] = []
 
+  const riskPerTrade = parseFloat(searchParams.get('risk') ?? '0.03')
+  const emaFilter = searchParams.get('emaFilter') === 'true'
+
   for (const combo of allCombos) {
-    const r = backtestCombo(candles, combo, slMult, tpRatio)
+    const r = backtestCombo(candles, combo, slMult, tpRatio, riskPerTrade, emaFilter)
     if (r.trades < 5) continue
     results.push({ combo: combo.join('+'), size: combo.length, ...r })
   }
 
   results.sort((a, b) => b.profitFactor - a.profitFactor)
 
+  // WT+RSI+EMA11 özel karşılaştırma: filtreli vs filtresiz, %1.5 vs %3 risk
+  const wtRsiEma: CondKey[] = ['WT', 'RSI', 'EMA11']
+  const comparison = {
+    noFilter_risk15: backtestCombo(candles, wtRsiEma, slMult, tpRatio, 0.015, false),
+    noFilter_risk3: backtestCombo(candles, wtRsiEma, slMult, tpRatio, 0.03, false),
+    emaFilter_risk15: backtestCombo(candles, wtRsiEma, slMult, tpRatio, 0.015, true),
+    emaFilter_risk3: backtestCombo(candles, wtRsiEma, slMult, tpRatio, 0.03, true),
+  }
+
   return NextResponse.json({
     symbol,
     interval,
     slMult,
     tpRatio,
+    riskPerTrade,
+    emaFilter,
     candles: candles.length,
     totalCombos: allCombos.length,
     testedCombos: results.length,
     top: results.slice(0, topN),
+    wtRsiEmaComparison: comparison,
   })
 }
