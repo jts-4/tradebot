@@ -89,7 +89,7 @@ export function evaluate(
   const lows = candles.map(c => c.low)
   const currentBarTime = candles[candles.length - 1].time
 
-  const ema10arr = EMA.calculate({ period: 10, values: closes })
+  const ema10arr = EMA.calculate({ period: 11, values: closes })
   const rsi14arr = RSI.calculate({ period: 14, values: closes })
   const atr14arr = ATR.calculate({ period: 14, high: highs, low: lows, close: closes })
 
@@ -146,11 +146,6 @@ export function evaluate(
   const maxNotional = available * CONFIG.account.maxNotionalPct
   const qty = Math.min(rawQty, maxNotional / entryPrice)
   const notional = qty * entryPrice
-
-  // Minimum notional kontrolü — sinyal var ama işlem küçükse NONE dön
-  if (notional < CONFIG.account.minNotional) {
-    return { signal: 'NONE', triggerFired, triggerDirection, fisherActive, notional, indicators, conditions, missing, qty, entryPrice, stopPrice: 0, targetPrice: 0 }
-  }
   const stopPrice = activeTriggerDirection === 'LONG' ? entryPrice - stopDist : entryPrice + stopDist
   const targetPrice = activeTriggerDirection === 'LONG'
     ? entryPrice + stopDist * CONFIG.account.rewardRiskRatio
@@ -192,6 +187,11 @@ export function evaluate(
       const gap = isNaN(cur) || isNaN(req) ? '-' : Math.abs(cur - req).toFixed(2)
       return { label: c.label, current: c.value, target: c.required, gap }
     })
+
+  // Minimum notional kontrolü
+  if (signal !== 'NONE' && notional < CONFIG.account.minNotional) {
+    return { signal: 'NONE', triggerFired, triggerDirection, fisherActive, notional, indicators, conditions, missing, qty, entryPrice, stopPrice, targetPrice }
+  }
 
   return { signal, triggerFired, triggerDirection, fisherActive, notional, indicators, conditions, missing, qty, entryPrice, stopPrice, targetPrice }
 }

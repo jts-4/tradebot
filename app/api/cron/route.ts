@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { evaluate, calcAdaptiveLookback, calcFisher } from '@/lib/strategy'
+import { EMA } from 'technicalindicators'
 import { CONFIG } from '@/lib/config'
 import type { Candle } from '@/lib/strategy'
 import type { InstrumentState } from '@/lib/types'
@@ -127,7 +128,12 @@ export async function POST(request: Request) {
     const fisherExitLong = trade.side === 'BUY' && prevFisher > prevTrigger && fisher < fishTrig
     const fisherExitShort = trade.side === 'SELL' && prevFisher < prevTrigger && fisher > fishTrig
 
-    if (fisherExitLong || fisherExitShort) {
+    // EMA10 çıkış kontrolü (sadece LONG)
+    const ema10arr = EMA.calculate({ period: 11, values: candles.map(c => c.close) })
+    const lastEma10 = ema10arr[ema10arr.length - 1]
+    const ema10ExitLong = trade.side === 'BUY' && lastCandle.close < lastEma10
+
+    if (fisherExitLong || fisherExitShort || ema10ExitLong) {
       exitPrice = lastCandle.close
       exitReason = 'REGIME_CHANGE'
     }
