@@ -71,12 +71,16 @@ function calcOrderBlock(candles: Candle[], i: number, lookback = 5): { bullOB: b
 
 type CondKey = 'WT' | 'Fisher' | 'RSI' | 'EMA11' | 'FVG' | 'BoS' | 'CHoCH' | 'OB'
 
+const STARTING_EQUITY = 10000
+const RISK_PER_TRADE = 0.015
+const COMMISSION = 0.001
+
 function backtestCombo(
   candles: Candle[],
   combo: CondKey[],
   slMult: number,
   tpRatio: number,
-): { trades: number; wins: number; winRate: number; profitFactor: number; totalPL: number; avgBars: number } {
+): { trades: number; wins: number; winRate: number; profitFactor: number; totalPL: number; realPL: number; finalEquity: number; returnPct: number; weeklyReturnPct: number; avgBars: number } {
   const closes = candles.map(c => c.close)
   const highs = candles.map(c => c.high)
   const lows = candles.map(c => c.low)
@@ -89,7 +93,8 @@ function backtestCombo(
   const rsiOffset = closes.length - rsi14All.length
   const atrOffset = closes.length - atr14All.length
 
-  const results: { pl: number; bars: number }[] = []
+  const results: { pl: number; realPL: number; bars: number }[] = []
+  let equity = STARTING_EQUITY
 
   for (let i = 50; i < candles.length - 1; i++) {
     const slice = candles.slice(0, i + 1)
@@ -145,7 +150,7 @@ function backtestCombo(
     const stop = isLong ? entry - stopDist : entry + stopDist
     const target = isLong ? entry + stopDist * tpRatio : entry - stopDist * tpRatio
 
-    let exitResult: { pl: number; bars: number } | null = null
+    let exitResult: { pl: number; realPL: number; bars: number } | null = null
     for (let j = i + 1; j < candles.length; j++) {
       const c = candles[j]
       const futureCloses = closes.slice(0, j + 1)
@@ -156,23 +161,41 @@ function backtestCombo(
       const fisherExit = isLong ? pf > pt && ff < ft : pf < pt && ff > ft
       const ema11Exit = isLong && c.close < futureLastEma11
 
+      const stopDist2 = slMult * ATR.calculate({ period: 14, high: highs.slice(0, j + 1), low: lows.slice(0, j + 1), close: closes.slice(0, j + 1) }).slice(-1)[0]
+      const riskAmt = equity * RISK_PER_TRADE
+      const qty = riskAmt / (slMult * lastAtr)
+      const notional = qty * entry
+      const comm = notional * COMMISSION * 2
+
+      const calcRealPL = (pricePL: number) => qty * pricePL - comm
+
       if (isLong) {
-        if (c.low <= stop) { exitResult = { pl: stop - entry, bars: j - i }; break }
-        if (c.high >= target) { exitResult = { pl: target - entry, bars: j - i }; break }
-        if (fisherExit || ema11Exit) { exitResult = { pl: c.close - entry, bars: j - i }; break }
+        if (c.low <= stop) { exitResult = { pl: stop - entry, realPL: calcRealPL(stop - entry), bars: j - i }; break }
+        if (c.high >= target) { exitResult = { pl: target - entry, realPL: calcRealPL(target - entry), bars: j - i }; break }
+        if (fisherExit || ema11Exit) { exitResult = { pl: c.close - entry, realPL: calcRealPL(c.close - entry), bars: j - i }; break }
       } else {
-        if (c.high >= stop) { exitResult = { pl: entry - stop, bars: j - i }; break }
-        if (c.low <= target) { exitResult = { pl: entry - target, bars: j - i }; break }
-        if (fisherExit) { exitResult = { pl: entry - c.close, bars: j - i }; break }
+        if (c.high >= stop) { exitResult = { pl: entry - stop, realPL: calcRealPL(entry - stop), bars: j - i }; break }
+        if (c.low <= target) { exitResult = { pl: entry - target, realPL: calcRealPL(entry - target), bars: j - i }; break }
+        if (fisherExit) { exitResult = { pl: entry - c.close, realPL: calcRealPL(entry - c.close), bars: j - i }; break }
       }
     }
-    if (exitResult) results.push(exitResult)
+    if (exitResult) {
+      equity += exitResult.realPL
+      results.push(exitResult)
+    }
   }
 
   const wins = results.filter(r => r.pl > 0).length
   const grossWin = results.filter(r => r.pl > 0).reduce((s, r) => s + r.pl, 0)
   const grossLoss = Math.abs(results.filter(r => r.pl <= 0).reduce((s, r) => s + r.pl, 0))
   const avgBars = results.length > 0 ? Math.round(results.reduce((s, r) => s + r.bars, 0) / results.length) : 0
+  const realPL = parseFloat((equity - STARTING_EQUITY).toFixed(2))
+  const returnPct = parseFloat(((realPL / STARTING_EQUITY) * 100).toFixed(1))
+  // Kaç hafta: candle sayısı × interval saati / 168
+  const totalBars = results.length > 0 ? results[results.length - 1].bars : 0
+  const weeklyReturnPct = returnPct > 0 && candles.length > 0
+    ? parseFloat((returnPct / (candles.length / (168 / 4))).toFixed(2))
+    : 0
 
   return {
     trades: results.length,
@@ -180,6 +203,10 @@ function backtestCombo(
     winRate: results.length > 0 ? Math.round((wins / results.length) * 100) : 0,
     profitFactor: grossLoss > 0 ? parseFloat((grossWin / grossLoss).toFixed(2)) : grossWin > 0 ? 999 : 0,
     totalPL: parseFloat(results.reduce((s, r) => s + r.pl, 0).toFixed(2)),
+    realPL,
+    finalEquity: parseFloat(equity.toFixed(2)),
+    returnPct,
+    weeklyReturnPct,
     avgBars,
   }
 }
@@ -218,6 +245,10 @@ export async function GET(request: Request) {
     winRate: number
     profitFactor: number
     totalPL: number
+    realPL: number
+    finalEquity: number
+    returnPct: number
+    weeklyReturnPct: number
     avgBars: number
   }[] = []
 
