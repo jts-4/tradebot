@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { evaluate, calcAdaptiveLookback } from '@/lib/strategy'
+import { evaluate, calcAdaptiveLookback, calcFisher } from '@/lib/strategy'
 import { CONFIG } from '@/lib/config'
 import type { Candle } from '@/lib/strategy'
 import type { InstrumentState } from '@/lib/types'
@@ -122,28 +122,26 @@ export async function POST(request: Request) {
     let exitPrice: number | null = null
     let exitReason: string | null = null
 
-    // Gap kontrolü — bar stop'un ötesinde açıldıysa açılıştan çık
-    if (trade.side === 'BUY') {
-      if (open <= trade.stop_price) {
-        exitPrice = open
-        exitReason = 'STOP'
-      } else if (low <= trade.stop_price) {
-        exitPrice = trade.stop_price
-        exitReason = 'STOP'
-      } else if (high >= trade.target_price) {
-        exitPrice = trade.target_price
-        exitReason = 'TARGET'
-      }
-    } else {
-      if (open >= trade.stop_price) {
-        exitPrice = open
-        exitReason = 'STOP'
-      } else if (high >= trade.stop_price) {
-        exitPrice = trade.stop_price
-        exitReason = 'STOP'
-      } else if (low <= trade.target_price) {
-        exitPrice = trade.target_price
-        exitReason = 'TARGET'
+    // Fisher çıkış kontrolü
+    const { fisher, trigger: fishTrig, prevFisher, prevTrigger } = calcFisher(candles)
+    const fisherExitLong = trade.side === 'BUY' && prevFisher > prevTrigger && fisher < fishTrig
+    const fisherExitShort = trade.side === 'SELL' && prevFisher < prevTrigger && fisher > fishTrig
+
+    if (fisherExitLong || fisherExitShort) {
+      exitPrice = lastCandle.close
+      exitReason = 'REGIME_CHANGE'
+    }
+
+    // Stop / Target kontrolü (Fisher çıkış yoksa)
+    if (exitPrice === null) {
+      if (trade.side === 'BUY') {
+        if (open <= trade.stop_price) { exitPrice = open; exitReason = 'STOP' }
+        else if (low <= trade.stop_price) { exitPrice = trade.stop_price; exitReason = 'STOP' }
+        else if (high >= trade.target_price) { exitPrice = trade.target_price; exitReason = 'TARGET' }
+      } else {
+        if (open >= trade.stop_price) { exitPrice = open; exitReason = 'STOP' }
+        else if (high >= trade.stop_price) { exitPrice = trade.stop_price; exitReason = 'STOP' }
+        else if (low <= trade.target_price) { exitPrice = trade.target_price; exitReason = 'TARGET' }
       }
     }
 
