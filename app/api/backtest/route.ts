@@ -125,15 +125,25 @@ function backtest(candles4h: Candle[], wtCandles: Candle[], slMult: number, tpRa
       const { fisher, trigger: fishTrig, prevFisher, prevTrigger } = calcFisher(futureSlice)
       const fisherExit = isLong ? prevFisher > prevTrigger && fisher < fishTrig : prevFisher < prevTrigger && fisher > fishTrig
       const ema11Exit = isLong && c.close < futureLastEma11
+
+      // Alt TF WT ters kesişim çıkışı
+      let wtExit = false
+      if (multiTF) {
+        const barMs = candles4h[1].time - candles4h[0].time
+        const wtInBar = wtSignals.filter(s => s.time > candles4h[i].time && s.time <= c.time)
+        if (isLong && wtInBar.some(s => s.dir === 'SHORT')) wtExit = true
+        if (!isLong && wtInBar.some(s => s.dir === 'LONG')) wtExit = true
+      }
+
       if (isLong) {
         if (c.low <= stop) { exitResult = { pl: stop - entry, exit: 'SL' }; break }
         if (c.high >= target) { exitResult = { pl: target - entry, exit: 'TP' }; break }
-        if (fisherExit) { exitResult = { pl: c.close - entry, exit: 'FISHER' }; break }
+        if (wtExit || fisherExit) { exitResult = { pl: c.close - entry, exit: 'FISHER' }; break }
         if (ema11Exit) { exitResult = { pl: c.close - entry, exit: 'EMA11' }; break }
       } else {
         if (c.high >= stop) { exitResult = { pl: entry - stop, exit: 'SL' }; break }
         if (c.low <= target) { exitResult = { pl: entry - target, exit: 'TP' }; break }
-        if (fisherExit) { exitResult = { pl: entry - c.close, exit: 'FISHER' }; break }
+        if (wtExit || fisherExit) { exitResult = { pl: entry - c.close, exit: 'FISHER' }; break }
       }
     }
 
