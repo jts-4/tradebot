@@ -130,6 +130,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                   <th className="pb-2 pr-4">Stop</th>
                   <th className="pb-2 pr-4">Hedef</th>
                   <th className="pb-2 pr-4">Notional</th>
+                  <th className="pb-2 pr-4">Süre</th>
                   <th className="pb-2">Tarih (İST)</th>
                 </tr>
               </thead>
@@ -142,6 +143,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                     <td className="py-2 pr-4 font-mono text-red-400">${t.stop_price?.toLocaleString()}</td>
                     <td className="py-2 pr-4 font-mono text-green-400">${t.target_price?.toLocaleString()}</td>
                     <td className="py-2 pr-4 font-mono text-gray-400">${t.notional?.toLocaleString()}</td>
+                    <td className="py-2 pr-4 text-xs text-blue-300 font-mono">{tradeAge(t.created_at)}</td>
                     <td className="py-2 text-gray-500 text-xs">{toIST(t.created_at)}</td>
                   </tr>
                 ))}
@@ -287,6 +289,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                     <th className="pb-2 pr-3">Fiyat</th>
                     <th className="pb-2 pr-3">Miktar</th>
                     <th className="pb-2 pr-3">K/Z</th>
+                    <th className="pb-2 pr-3">Sonuç</th>
                     <th className="pb-2">Tarih (İST)</th>
                   </tr>
                 </thead>
@@ -299,6 +302,9 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                       <td className="py-2 pr-3 font-mono">{t.quantity}</td>
                       <td className={`py-2 pr-3 font-mono ${(t.profit_loss ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                         {t.profit_loss != null ? `$${t.profit_loss.toFixed(2)}` : '—'}
+                      </td>
+                      <td className={`py-2 pr-3 text-xs ${exitLabel(t.exit_reason).color}`}>
+                        {exitLabel(t.exit_reason).text}
                       </td>
                       <td className="py-2 text-gray-500 text-xs">{toIST(t.created_at)}</td>
                     </tr>
@@ -381,6 +387,24 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
 
     </div>
   )
+}
+
+function tradeAge(createdAt: string): string {
+  const ms = Date.now() - new Date(createdAt).getTime()
+  const totalMins = Math.floor(ms / 60000)
+  const days = Math.floor(totalMins / 1440)
+  const hours = Math.floor((totalMins % 1440) / 60)
+  const mins = totalMins % 60
+  if (days > 0) return `${days}g ${hours}s ${mins}d`
+  if (hours > 0) return `${hours}s ${mins}d`
+  return `${mins}d`
+}
+
+function exitLabel(reason: string | null): { text: string; color: string } {
+  if (reason === 'TARGET') return { text: '✅ Take Profit', color: 'text-green-400' }
+  if (reason === 'STOP') return { text: '🛑 Stop Loss', color: 'text-red-400' }
+  if (reason === 'REGIME_CHANGE') return { text: '⚠ Trend Değişimi', color: 'text-yellow-400' }
+  return { text: '—', color: 'text-gray-500' }
 }
 
 function Stat({ label, value, color = 'text-white' }: { label: string; value: string; color?: string }) {
