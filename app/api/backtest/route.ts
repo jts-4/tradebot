@@ -34,7 +34,7 @@ function findWtAtTime(wtCandles: Candle[], time: number): { wt1: number; wt2: nu
   return calcWaveTrend(wtCandles.slice(0, useIdx))
 }
 
-function backtest(candles4h: Candle[], wtCandles: Candle[], slMult: number, tpRatio: number, emaFilter = false): {
+function backtest(candles4h: Candle[], wtCandles: Candle[], slMult: number, tpRatio: number, emaFilter = false, emaPeriod = 11): {
   trades: number; wins: number; winRate: number; profitFactor: number; totalPL: number
 } {
   const closes = candles4h.map(c => c.close)
@@ -65,7 +65,7 @@ function backtest(candles4h: Candle[], wtCandles: Candle[], slMult: number, tpRa
     const sliceLows = lows.slice(0, i + 1)
     const currentTime = candles4h[i].time
 
-    const ema11arr = EMA.calculate({ period: 11, values: sliceCloses })
+    const ema11arr = EMA.calculate({ period: emaPeriod, values: sliceCloses })
     const atr14arr = ATR.calculate({ period: 14, high: sliceHighs, low: sliceLows, close: sliceCloses })
 
     const lastClose = sliceCloses[sliceCloses.length - 1]
@@ -119,7 +119,7 @@ function backtest(candles4h: Candle[], wtCandles: Candle[], slMult: number, tpRa
     for (let j = i + 1; j < candles4h.length; j++) {
       const c = candles4h[j]
       const futureCloses = closes.slice(0, j + 1)
-      const futureEma11 = EMA.calculate({ period: 11, values: futureCloses })
+      const futureEma11 = EMA.calculate({ period: emaPeriod, values: futureCloses })
       const futureLastEma11 = futureEma11[futureEma11.length - 1]
       const futureSlice = candles4h.slice(0, j + 1)
       const { fisher, trigger: fishTrig, prevFisher, prevTrigger } = calcFisher(futureSlice)
@@ -167,6 +167,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const symbol = searchParams.get('symbol') ?? 'BTCUSDT'
   const wtInterval = searchParams.get('wtInterval') ?? '4h'
+  const emaPeriod = parseInt(searchParams.get('emaPeriod') ?? '11')
 
   if (!SYMBOLS.includes(symbol)) {
     return NextResponse.json({ error: 'Geçersiz sembol' }, { status: 400 })
@@ -186,8 +187,8 @@ export async function GET(request: Request) {
   for (const sl of SL_MULTS) {
     for (const tp of TP_RATIOS) {
       const key = `SL${sl}xATR_TP${tp}xRR`
-      const r = backtest(candles4h, wtCandlesFinal, sl, tp, false)
-      const re = backtest(candles4h, wtCandlesFinal, sl, tp, true)
+      const r = backtest(candles4h, wtCandlesFinal, sl, tp, false, emaPeriod)
+      const re = backtest(candles4h, wtCandlesFinal, sl, tp, true, emaPeriod)
       results[key] = { ...r, slMult: sl, tpRatio: tp }
       resultsEma[key] = { ...re, slMult: sl, tpRatio: tp }
       if (r.profitFactor > best.profitFactor && r.trades >= 5) best = { key, profitFactor: r.profitFactor }
@@ -198,6 +199,7 @@ export async function GET(request: Request) {
   return NextResponse.json({
     symbol,
     wtInterval,
+    emaPeriod,
     candles4h: candles4h.length,
     wtCandles: wtCandlesFinal.length,
     best: best.key,
