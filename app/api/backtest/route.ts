@@ -27,7 +27,7 @@ async function fetchCandles(symbol: string): Promise<Candle[]> {
 
 type TradeResult = { pl: number; exit: 'TP' | 'SL' | 'FISHER' | 'EMA11' }
 
-function backtest(candles: Candle[], slMult: number, tpRatio: number, volumeFilter = false): {
+function backtest(candles: Candle[], slMult: number, tpRatio: number, emaFilter = false): {
   trades: number; wins: number; winRate: number; profitFactor: number; totalPL: number
 } {
   const closes = candles.map(c => c.close)
@@ -69,11 +69,14 @@ function backtest(candles: Candle[], slMult: number, tpRatio: number, volumeFilt
     const isLong = triggerDir === 'LONG' && ema11CrossUp
     const isShort = triggerDir === 'SHORT' && ema11CrossDown
 
-    // Hacim filtresi
-    if (volumeFilter) {
-      const vols = candles.slice(Math.max(0, i - 20), i).map(c => c.volume)
-      const avgVol = vols.reduce((a, b) => a + b, 0) / vols.length
-      if (candles[i].volume < avgVol) continue
+    // EMA50/200 trend filtresi
+    if (emaFilter) {
+      const ema50arr = EMA.calculate({ period: 50, values: sliceCloses })
+      const ema200arr = EMA.calculate({ period: 200, values: sliceCloses })
+      const ema50 = ema50arr[ema50arr.length - 1]
+      const ema200 = ema200arr[ema200arr.length - 1]
+      if (isLong && (lastClose < ema50 || lastClose < ema200)) continue
+      if (isShort && (lastClose > ema50 || lastClose > ema200)) continue
     }
 
     if (!isLong && !isShort) continue
@@ -164,9 +167,9 @@ export async function GET(request: Request) {
     candles: candles.length,
     best: best.key,
     bestConfig: results[best.key],
-    bestWithVolumeFilter: bestVol.key,
-    bestVolumeConfig: resultsVol[bestVol.key],
+    bestWithEmaFilter: bestVol.key,
+    bestEmaConfig: resultsVol[bestVol.key],
     current: results[`SL2.5xATR_TP2.5xRR`],
-    currentWithVolume: resultsVol[`SL2.5xATR_TP2.5xRR`],
+    currentWithEma: resultsVol[`SL2.5xATR_TP2.5xRR`],
   })
 }
