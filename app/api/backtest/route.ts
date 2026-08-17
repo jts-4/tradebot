@@ -27,7 +27,7 @@ async function fetchCandles(symbol: string): Promise<Candle[]> {
 
 type TradeResult = { pl: number; exit: 'TP' | 'SL' | 'FISHER' | 'EMA11' }
 
-function backtest(candles: Candle[], slMult: number, tpRatio: number): {
+function backtest(candles: Candle[], slMult: number, tpRatio: number, volumeFilter = false): {
   trades: number; wins: number; winRate: number; profitFactor: number; totalPL: number
 } {
   const closes = candles.map(c => c.close)
@@ -68,6 +68,13 @@ function backtest(candles: Candle[], slMult: number, tpRatio: number): {
 
     const isLong = triggerDir === 'LONG' && ema11CrossUp
     const isShort = triggerDir === 'SHORT' && ema11CrossDown
+
+    // Hacim filtresi
+    if (volumeFilter) {
+      const vols = candles.slice(Math.max(0, i - 20), i).map(c => c.volume)
+      const avgVol = vols.reduce((a, b) => a + b, 0) / vols.length
+      if (candles[i].volume < avgVol) continue
+    }
 
     if (!isLong && !isShort) continue
 
@@ -136,16 +143,19 @@ export async function GET(request: Request) {
   const candles = await fetchCandles(symbol)
 
   const results: Record<string, ReturnType<typeof backtest> & { slMult: number; tpRatio: number }> = {}
+  const resultsVol: Record<string, ReturnType<typeof backtest> & { slMult: number; tpRatio: number }> = {}
   let best = { key: '', profitFactor: 0 }
+  let bestVol = { key: '', profitFactor: 0 }
 
   for (const sl of SL_MULTS) {
     for (const tp of TP_RATIOS) {
       const key = `SL${sl}xATR_TP${tp}xRR`
-      const r = backtest(candles, sl, tp)
+      const r = backtest(candles, sl, tp, false)
+      const rv = backtest(candles, sl, tp, true)
       results[key] = { ...r, slMult: sl, tpRatio: tp }
-      if (r.profitFactor > best.profitFactor && r.trades >= 5) {
-        best = { key, profitFactor: r.profitFactor }
-      }
+      resultsVol[key] = { ...rv, slMult: sl, tpRatio: tp }
+      if (r.profitFactor > best.profitFactor && r.trades >= 5) best = { key, profitFactor: r.profitFactor }
+      if (rv.profitFactor > bestVol.profitFactor && rv.trades >= 5) bestVol = { key, profitFactor: rv.profitFactor }
     }
   }
 
@@ -154,7 +164,9 @@ export async function GET(request: Request) {
     candles: candles.length,
     best: best.key,
     bestConfig: results[best.key],
+    bestWithVolumeFilter: bestVol.key,
+    bestVolumeConfig: resultsVol[bestVol.key],
     current: results[`SL2.5xATR_TP2.5xRR`],
-    all: results,
+    currentWithVolume: resultsVol[`SL2.5xATR_TP2.5xRR`],
   })
 }
