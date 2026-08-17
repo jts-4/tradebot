@@ -6,7 +6,7 @@ export const CONFIG = {
     maxNotionalPct: 0.3 as number,
     minNotionalPct: 0.2 as number,
     minNotional: 1000 as number,
-    rewardRiskRatio: 2 as number,
+    rewardRiskRatio: 3 as number,
     slippage: 0.0005 as number,
     commission: 0.001 as number,
   },
@@ -23,12 +23,12 @@ export const CONFIG = {
     },
     // Her sembol için özel strateji config
     symbolConfig: {
-      BTCUSDT: { combo: 'WT+RSI+EMA11+EMAFilter', interval: '4h', slMult: 2, tpRatio: 2 },
-      ETHUSDT: { combo: 'WT+Fisher+FVG',          interval: '2h', slMult: 3, tpRatio: 2 },
-      SOLUSDT: { combo: 'WT+Fisher+RSI',           interval: '4h', slMult: 2, tpRatio: 2 },
-      XRPUSDT: { combo: 'RSI+EMA11+BoS',           interval: '4h', slMult: 2, tpRatio: 2 },
-      SUIUSDT: { combo: 'WT+Fisher+EMA11',         interval: '4h', slMult: 2, tpRatio: 2 },
-      HBARUSDT:{ combo: 'WT+RSI+BoS',              interval: '4h', slMult: 2, tpRatio: 2 },
+      BTCUSDT: { combo: 'WT+Fisher+EMAFilter+FVG', interval: '4h', slMult: 2, tpRatio: 3 },
+      ETHUSDT: { combo: 'WT+Fisher+EMAFilter+FVG', interval: '4h', slMult: 2, tpRatio: 3 },
+      SOLUSDT: { combo: 'WT+Fisher+EMAFilter+FVG', interval: '4h', slMult: 2, tpRatio: 3 },
+      XRPUSDT: { combo: 'WT+Fisher+EMAFilter+FVG', interval: '4h', slMult: 2, tpRatio: 3 },
+      SUIUSDT: { combo: 'WT+Fisher+EMAFilter+FVG', interval: '4h', slMult: 2, tpRatio: 3 },
+      HBARUSDT:{ combo: 'WT+Fisher+EMAFilter+FVG', interval: '4h', slMult: 2, tpRatio: 3 },
     } as Record<string, { combo: string; interval: string; slMult: number; tpRatio: number }>,
     us: {
       symbols: ['AAPL', 'AMZN', 'INTC', 'META', 'NVDA'],
@@ -39,5 +39,5 @@ export const CONFIG = {
   fetchLimit: 500 as number,
   minCandles: 50 as number,
   triggerLookback: 3 as number, // tetikleyici kaç mum geçerliliğini korur
-  strategyVersion: '3.0.0' as string,
+  strategyVersion: '5.0.0' as string,
 } as const
