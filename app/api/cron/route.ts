@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { evaluate, calcAdaptiveLookback, calcFisher } from '@/lib/strategy'
+import { evaluate, calcAdaptiveLookback, calcFisher, calcWaveTrend } from '@/lib/strategy'
 import { EMA } from 'technicalindicators'
 import { CONFIG } from '@/lib/config'
 import type { Candle } from '@/lib/strategy'
@@ -71,22 +71,41 @@ export async function POST(request: Request) {
     (completedTrades ?? []) as { trigger_lookback: number; profit_loss: number }[]
   )
 
-  // Tüm mumları paralel çek
-  const candleResults = await Promise.allSettled(
-    SYMBOLS.map(s => fetchCandles(s))
-  )
+  // Tüm mumları paralel çek (4h + 2h WT için)
+  const [candleResults, wtCandleResults] = await Promise.all([
+    Promise.allSettled(SYMBOLS.map(s => fetchCandles(s))),
+    Promise.allSettled(SYMBOLS.map(s =>
+      fetch(`https://data-api.binance.vision/api/v3/klines?symbol=${s}&interval=2h&limit=500`)
+        .then(r => r.json())
+        .then((data: unknown[]) => data.map((k: unknown) => {
+          const arr = k as unknown[]
+          return {
+            time: arr[0] as number,
+            open: parseFloat(arr[1] as string),
+            high: parseFloat(arr[2] as string),
+            low: parseFloat(arr[3] as string),
+            close: parseFloat(arr[4] as string),
+            volume: parseFloat(arr[5] as string),
+          }
+        }))
+        .catch(() => [])
+    )),
+  ])
 
-  const candleMap: Record<string, Candle[]> = {}
+  const candleMap: Record<string, import('@/lib/strategy').Candle[]> = {}
+  const wtCandleMap: Record<string, import('@/lib/strategy').Candle[]> = {}
   const candleDebug: Record<string, number> = {}
   SYMBOLS.forEach((s, i) => {
     const r = candleResults[i]
     if (r.status === 'fulfilled') {
       candleDebug[s] = r.value.length
-      if (r.value.length >= CONFIG.minCandles) {
-        candleMap[s] = r.value
-      }
+      if (r.value.length >= CONFIG.minCandles) candleMap[s] = r.value
     } else {
       candleDebug[s] = -1
+    }
+    const wtr = wtCandleResults[i]
+    if (wtr.status === 'fulfilled' && wtr.value.length >= CONFIG.minCandles) {
+      wtCandleMap[s] = wtr.value
     }
   })
 
@@ -187,15 +206,20 @@ export async function POST(request: Request) {
 
     const result = evaluate(candles, equity, available, instrState, triggerLookback, statusRow?.use_rsi_filter ?? false)
 
-    // Enstrüman state güncelle
-    if (result.triggerFired) {
-      const lastBar = candles[candles.length - 1]
-      await supabase.from('instrument_state').upsert({
-        symbol,
-        trigger_type: 'WT',
-        trigger_bar_time: lastBar.time,
-        trigger_direction: result.triggerDirection,
-      })
+    // Enstrüman state güncelle — 2h WT tetikleyici kontrolü
+    const wtCandles = wtCandleMap[symbol]
+    if (wtCandles && wtCandles.length >= CONFIG.minCandles) {
+      const { wt1, wt2, prevWt1, prevWt2 } = calcWaveTrend(wtCandles)
+      const wtCrossUp = prevWt1 < prevWt2 && wt1 > wt2
+      const wtCrossDown = prevWt1 > prevWt2 && wt1 < wt2
+      if (wtCrossUp || wtCrossDown) {
+        await supabase.from('instrument_state').upsert({
+          symbol,
+          trigger_type: 'WT',
+          trigger_bar_time: wtCandles[wtCandles.length - 1].time,
+          trigger_direction: wtCrossUp ? 'LONG' : 'SHORT',
+        })
+      }
     }
 
     const lastCandle = candles[candles.length - 1]

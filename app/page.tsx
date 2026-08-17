@@ -371,12 +371,12 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       <div className="bg-gray-900 rounded-xl p-4 space-y-3">
         <h2 className="font-semibold">Strateji</h2>
         <div className="text-sm text-gray-300 space-y-1">
-          <p>• Giriş LONG: kapanış EMA10&apos;u yukarı keser <strong>VE</strong> RSI14 &gt; 52 <strong>VE</strong> WT1 WT2&apos;yi yukarı keser</p>
-          <p>• Giriş SHORT: bunların aynası — RSI14 &lt; 48, aşağı kesişimler</p>
-          <p>• Ölü bant: 48 ≤ RSI ≤ 52 → işlem yok</p>
-          <p>• Stop: giriş ∓ 3.5 × ATR14 | Hedef: 1:3</p>
-          <p>• Boyut: equity × %1.5 / (3.5 × ATR14)</p>
-          <p>• Kontrol: her saatin 20. dakikasında (GitHub Actions)</p>
+          <p>• <strong>Tetikleyici</strong>: 2h WaveTrend WT1 WT2&apos;yi keser (3 mum geçerli)</p>
+          <p>• <strong>Giriş LONG</strong>: 4h EMA11 yukarı kesişim + fiyat EMA50 &amp; EMA200 üzerinde</p>
+          <p>• <strong>Giriş SHORT</strong>: 4h EMA11 aşağı kesişim + fiyat EMA50 &amp; EMA200 altında</p>
+          <p>• <strong>Çıkış</strong>: Stop Loss (3×ATR) | Take Profit (3×RR) | Fisher ters kesişim | LONG&apos;da EMA11 altı kapanış</p>
+          <p>• <strong>Pozisyon boyutu</strong>: Kullanılabilir sermayenin %20-%30&apos;u, min $1,000</p>
+          <p>• <strong>Kontrol</strong>: Her saatin 23. dakikasında (cron-job.org)</p>
         </div>
         <EmaToggle initial={status?.use_ema_filter ?? false} />
         <RsiToggle initial={status?.use_rsi_filter ?? false} />
