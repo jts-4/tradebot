@@ -2,10 +2,10 @@ export const CONFIG = {
   account: {
     startingEquity: 10000 as number,
     riskPerTrade: 0.015 as number,
-    stopAtrMult: 2 as number,
+    stopAtrMult: 2.5 as number,
     maxNotionalPct: 0.3 as number,
     minNotional: 1000 as number,
-    rewardRiskRatio: 3 as number,
+    rewardRiskRatio: 2.5 as number,
     slippage: 0.0005 as number,
     commission: 0.001 as number,
   },
