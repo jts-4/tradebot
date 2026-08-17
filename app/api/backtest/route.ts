@@ -255,6 +255,7 @@ function backtest2(candles: Candle[], slMult: number, tpRatio: number, minCondit
 }
 
 
+export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const symbol = searchParams.get('symbol') ?? 'BTCUSDT'
   const wtInterval = searchParams.get('wtInterval') ?? '4h'
