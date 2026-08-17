@@ -4,15 +4,14 @@ import { calcWaveTrend, calcFisher } from '@/lib/strategy'
 import type { Candle } from '@/lib/strategy'
 
 const SYMBOLS = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT', 'SUIUSDT', 'HBARUSDT']
-// 6 ay = ~1080 adet 4h mum
 const LIMIT = 1000
 
 const SL_MULTS = [1.5, 2.0, 2.5, 3.0]
 const TP_RATIOS = [1.5, 2.0, 2.5, 3.0]
 
-async function fetchCandles(symbol: string): Promise<Candle[]> {
+async function fetchCandles(symbol: string, interval: string): Promise<Candle[]> {
   const res = await fetch(
-    `https://data-api.binance.vision/api/v3/klines?symbol=${symbol}&interval=4h&limit=${LIMIT}`
+    `https://data-api.binance.vision/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${LIMIT}`
   )
   const data = await res.json()
   return data.map((k: unknown[]) => ({
@@ -138,12 +137,13 @@ function backtest(candles: Candle[], slMult: number, tpRatio: number, emaFilter 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const symbol = searchParams.get('symbol') ?? 'BTCUSDT'
+  const interval = searchParams.get('interval') ?? '4h'
 
   if (!SYMBOLS.includes(symbol)) {
     return NextResponse.json({ error: 'Geçersiz sembol' }, { status: 400 })
   }
 
-  const candles = await fetchCandles(symbol)
+  const candles = await fetchCandles(symbol, interval)
 
   const results: Record<string, ReturnType<typeof backtest> & { slMult: number; tpRatio: number }> = {}
   const resultsVol: Record<string, ReturnType<typeof backtest> & { slMult: number; tpRatio: number }> = {}
@@ -164,6 +164,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     symbol,
+    interval,
     candles: candles.length,
     best: best.key,
     bestConfig: results[best.key],
