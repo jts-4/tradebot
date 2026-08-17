@@ -1,0 +1,17 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Cron Tetikle",
+      "type": "shell",
+      "command": "curl -s -X POST https://tradeboth4v1.vercel.app/api/cron -H 'Authorization: Bearer tradebotcron2024' -H 'Content-Type: application/json' | python3 -m json.tool",
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "Dev Server Başlat",
+      "type": "shell",
+      "command": "npm run dev",
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    }
+  ]
+}

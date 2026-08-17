@@ -143,7 +143,10 @@ export function evaluate(
     ? lastClose * (1 - slip)
     : lastClose * (1 + slip)
   const rawQty = (equity * CONFIG.account.riskPerTrade) / stopDist
-  const maxNotional = available * CONFIG.account.maxNotionalPct
+  // ATR büyükse %20, küçükse %30 — normalize ile interpolate
+  const atrPct = lastAtr / entryPrice
+  const notionalPct = Math.max(CONFIG.account.minNotionalPct, Math.min(CONFIG.account.maxNotionalPct, CONFIG.account.maxNotionalPct - (atrPct / 0.02) * 0.1))
+  const maxNotional = available * notionalPct
   const qty = Math.min(rawQty, maxNotional / entryPrice)
   const notional = qty * entryPrice
   const stopPrice = activeTriggerDirection === 'LONG' ? entryPrice - stopDist : entryPrice + stopDist
@@ -153,7 +156,7 @@ export function evaluate(
 
   const indicators = [
     { label: 'Fiyat', value: lastClose.toFixed(2) },
-    { label: 'EMA10', value: lastEma10.toFixed(2) },
+    { label: 'EMA11', value: lastEma10.toFixed(2) },
     { label: 'RSI14', value: lastRsi.toFixed(1) },
     { label: 'ATR14', value: lastAtr.toFixed(4) },
     { label: 'WT1', value: wt1.toFixed(2) },
