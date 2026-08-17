@@ -2,11 +2,11 @@ export const CONFIG = {
   account: {
     startingEquity: 10000 as number,
     riskPerTrade: 0.015 as number,
-    stopAtrMult: 3 as number,
+    stopAtrMult: 2 as number,
     maxNotionalPct: 0.3 as number,
     minNotionalPct: 0.2 as number,
     minNotional: 1000 as number,
-    rewardRiskRatio: 3 as number,
+    rewardRiskRatio: 2 as number,
     slippage: 0.0005 as number,
     commission: 0.001 as number,
   },
@@ -30,5 +30,5 @@ export const CONFIG = {
   fetchLimit: 500 as number,
   minCandles: 50 as number,
   triggerLookback: 3 as number, // tetikleyici kaç mum geçerliliğini korur
-  strategyVersion: '1.0.0' as string,
+  strategyVersion: '2.0.0' as string,
 } as const

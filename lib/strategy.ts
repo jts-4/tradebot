@@ -87,9 +87,8 @@ export function evaluate(
   const closes = candles.map(c => c.close)
   const highs = candles.map(c => c.high)
   const lows = candles.map(c => c.low)
-  const currentBarTime = candles[candles.length - 1].time
 
-  const ema10arr = EMA.calculate({ period: 11, values: closes })
+  const ema11arr = EMA.calculate({ period: 11, values: closes })
   const ema50arr = EMA.calculate({ period: 50, values: closes })
   const ema200arr = EMA.calculate({ period: 200, values: closes })
   const rsi14arr = RSI.calculate({ period: 14, values: closes })
@@ -97,70 +96,59 @@ export function evaluate(
 
   const lastClose = closes[closes.length - 1]
   const prevClose = closes[closes.length - 2]
-  const lastEma10 = ema10arr[ema10arr.length - 1]
-  const prevEma10 = ema10arr[ema10arr.length - 2]
+  const lastEma11 = ema11arr[ema11arr.length - 1]
+  const prevEma11 = ema11arr[ema11arr.length - 2]
   const lastEma50 = ema50arr[ema50arr.length - 1]
   const lastEma200 = ema200arr[ema200arr.length - 1]
   const lastRsi = rsi14arr[rsi14arr.length - 1]
+  const prevRsi = rsi14arr[rsi14arr.length - 2]
   const lastAtr = atr14arr[atr14arr.length - 1]
 
   const { wt1, wt2, prevWt1, prevWt2 } = calcWaveTrend(candles)
   const { fisher, trigger: fishTrig, prevFisher, prevTrigger } = calcFisher(candles)
 
-  const ema10CrossUp = prevClose < prevEma10 && lastClose > lastEma10
-  const ema10CrossDown = prevClose > prevEma10 && lastClose < lastEma10
   const wtCrossUp = prevWt1 < prevWt2 && wt1 > wt2
   const wtCrossDown = prevWt1 > prevWt2 && wt1 < wt2
   const fisherCrossUp = prevFisher < prevTrigger && fisher > fishTrig
   const fisherCrossDown = prevFisher > prevTrigger && fisher < fishTrig
+  const rsiCrossUp = prevRsi < 50 && lastRsi >= 50
+  const rsiCrossDown = prevRsi > 50 && lastRsi <= 50
+  const ema11CrossUp = prevClose < prevEma11 && lastClose > lastEma11
+  const ema11CrossDown = prevClose > prevEma11 && lastClose < lastEma11
 
-  const rsiLong = lastRsi > 52
-  const rsiShort = lastRsi < 48
+  // 4 koşuldan kaçı sağlanıyor?
+  const longConds = [wtCrossUp, fisherCrossUp, rsiCrossUp, ema11CrossUp]
+  const shortConds = [wtCrossDown, fisherCrossDown, rsiCrossDown, ema11CrossDown]
+  const longScore = longConds.filter(Boolean).length
+  const shortScore = shortConds.filter(Boolean).length
+  const MIN_CONDITIONS = 3
 
-  // Bu mumda yeni WT tetikleyici ateşlendi mi?
   const triggerFired = wtCrossUp || wtCrossDown
   const triggerDirection: 'LONG' | 'SHORT' | null = wtCrossUp ? 'LONG' : wtCrossDown ? 'SHORT' : null
+  const fisherActive = fisherCrossUp || fisherCrossDown
 
-  // Aktif tetikleyici
-  const barMs = 4 * 60 * 60 * 1000
-  const barsSinceTrigger = instrState.trigger_bar_time
-    ? Math.round((currentBarTime - instrState.trigger_bar_time) / barMs)
-    : Infinity
-
-  let activeTriggerDirection: 'LONG' | 'SHORT' | null = null
-  if (triggerFired) {
-    activeTriggerDirection = triggerDirection
-  } else if (instrState.trigger_direction && barsSinceTrigger <= triggerLookback) {
-    activeTriggerDirection = instrState.trigger_direction
-  }
-
-  // Fisher bu mumda uygun mu? (kayıt amaçlı)
-  const fisherActive = activeTriggerDirection === 'LONG'
-    ? fisherCrossUp
-    : activeTriggerDirection === 'SHORT'
-      ? fisherCrossDown
-      : false
+  const isLong = longScore >= MIN_CONDITIONS && !(shortScore >= MIN_CONDITIONS)
+  const isShort = shortScore >= MIN_CONDITIONS && !(longScore >= MIN_CONDITIONS)
+  const signal: 'LONG' | 'SHORT' | 'NONE' = isLong ? 'LONG' : isShort ? 'SHORT' : 'NONE'
+  const dir = isLong ? 'LONG' : isShort ? 'SHORT' : null
 
   const stopDist = CONFIG.account.stopAtrMult * lastAtr
   const slip = CONFIG.account.slippage
-  const entryPrice = activeTriggerDirection === 'SHORT'
-    ? lastClose * (1 - slip)
-    : lastClose * (1 + slip)
+  const entryPrice = dir === 'SHORT' ? lastClose * (1 - slip) : lastClose * (1 + slip)
   const rawQty = (equity * CONFIG.account.riskPerTrade) / stopDist
-  // ATR büyükse %20, küçükse %30 — normalize ile interpolate
   const atrPct = lastAtr / entryPrice
   const notionalPct = Math.max(CONFIG.account.minNotionalPct, Math.min(CONFIG.account.maxNotionalPct, CONFIG.account.maxNotionalPct - (atrPct / 0.02) * 0.1))
   const maxNotional = available * notionalPct
   const qty = Math.min(rawQty, maxNotional / entryPrice)
   const notional = qty * entryPrice
-  const stopPrice = activeTriggerDirection === 'LONG' ? entryPrice - stopDist : entryPrice + stopDist
-  const targetPrice = activeTriggerDirection === 'LONG'
+  const stopPrice = dir === 'LONG' ? entryPrice - stopDist : entryPrice + stopDist
+  const targetPrice = dir === 'LONG'
     ? entryPrice + stopDist * CONFIG.account.rewardRiskRatio
     : entryPrice - stopDist * CONFIG.account.rewardRiskRatio
 
   const indicators = [
     { label: 'Fiyat', value: lastClose.toFixed(2) },
-    { label: 'EMA11', value: lastEma10.toFixed(2) },
+    { label: 'EMA11', value: lastEma11.toFixed(2) },
     { label: 'EMA50', value: lastEma50.toFixed(2) },
     { label: 'EMA200', value: lastEma200.toFixed(2) },
     { label: 'RSI14', value: lastRsi.toFixed(1) },
@@ -171,37 +159,28 @@ export function evaluate(
     { label: 'Fisher Trig', value: fishTrig.toFixed(2) },
   ]
 
-  const longConditions = [
-    { label: 'WT yukarı kesişim (tetikleyici)', passed: activeTriggerDirection === 'LONG', value: wt1.toFixed(2), required: `> ${wt2.toFixed(2)}` },
-    { label: 'EMA11 yukarı kesişim', passed: ema10CrossUp, value: lastClose.toFixed(2), required: `> ${lastEma10.toFixed(2)}` },
-    { label: 'Fiyat EMA50 üzerinde', passed: lastClose > lastEma50, value: lastClose.toFixed(2), required: `> ${lastEma50.toFixed(2)}` },
-    { label: 'Fiyat EMA200 üzerinde', passed: lastClose > lastEma200, value: lastClose.toFixed(2), required: `> ${lastEma200.toFixed(2)}` },
-    ...(useRsiFilter ? [{ label: 'RSI > 52', passed: rsiLong, value: lastRsi.toFixed(1), required: '> 52' }] : []),
+  const condDir = dir ?? (longScore >= shortScore ? 'LONG' : 'SHORT')
+  const conditions = condDir === 'LONG' ? [
+    { label: 'WT yukarı kesişim', passed: wtCrossUp, value: wt1.toFixed(2), required: `> ${wt2.toFixed(2)}` },
+    { label: 'Fisher yukarı kesişim', passed: fisherCrossUp, value: fisher.toFixed(2), required: `> ${fishTrig.toFixed(2)}` },
+    { label: 'RSI 50 üzerine', passed: rsiCrossUp, value: lastRsi.toFixed(1), required: '≥ 50' },
+    { label: 'EMA11 yukarı kesişim', passed: ema11CrossUp, value: lastClose.toFixed(2), required: `> ${lastEma11.toFixed(2)}` },
+  ] : [
+    { label: 'WT aşağı kesişim', passed: wtCrossDown, value: wt1.toFixed(2), required: `< ${wt2.toFixed(2)}` },
+    { label: 'Fisher aşağı kesişim', passed: fisherCrossDown, value: fisher.toFixed(2), required: `< ${fishTrig.toFixed(2)}` },
+    { label: 'RSI 50 altına', passed: rsiCrossDown, value: lastRsi.toFixed(1), required: '≤ 50' },
+    { label: 'EMA11 aşağı kesişim', passed: ema11CrossDown, value: lastClose.toFixed(2), required: `< ${lastEma11.toFixed(2)}` },
   ]
-
-  const shortConditions = [
-    { label: 'WT aşağı kesişim (tetikleyici)', passed: activeTriggerDirection === 'SHORT', value: wt1.toFixed(2), required: `< ${wt2.toFixed(2)}` },
-    { label: 'EMA11 aşağı kesişim', passed: ema10CrossDown, value: lastClose.toFixed(2), required: `< ${lastEma10.toFixed(2)}` },
-    { label: 'Fiyat EMA50 altında', passed: lastClose < lastEma50, value: lastClose.toFixed(2), required: `< ${lastEma50.toFixed(2)}` },
-    { label: 'Fiyat EMA200 altında', passed: lastClose < lastEma200, value: lastClose.toFixed(2), required: `< ${lastEma200.toFixed(2)}` },
-    ...(useRsiFilter ? [{ label: 'RSI < 48', passed: rsiShort, value: lastRsi.toFixed(1), required: '< 48' }] : []),
-  ]
-
-  const isLong = longConditions.every(c => c.passed)
-  const isShort = shortConditions.every(c => c.passed)
-  const signal = isLong ? 'LONG' : isShort ? 'SHORT' : 'NONE'
-  const conditions = activeTriggerDirection === 'SHORT' ? shortConditions : longConditions
 
   const missing = conditions
     .filter(c => !c.passed)
     .map(c => {
       const cur = parseFloat(c.value)
-      const req = parseFloat(c.required.replace(/[^0-9.]/g, ''))
+      const req = parseFloat(c.required.replace(/[^0-9.≥≤]/g, ''))
       const gap = isNaN(cur) || isNaN(req) ? '-' : Math.abs(cur - req).toFixed(2)
       return { label: c.label, current: c.value, target: c.required, gap }
     })
 
-  // Minimum notional kontrolü
   if (signal !== 'NONE' && notional < CONFIG.account.minNotional) {
     return { signal: 'NONE', triggerFired, triggerDirection, fisherActive, notional, indicators, conditions, missing, qty, entryPrice, stopPrice, targetPrice }
   }
