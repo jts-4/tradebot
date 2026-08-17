@@ -21,6 +21,15 @@ export const CONFIG = {
       interval: '4h' as string,
       longOnly: false,
     },
+    // Her sembol için özel strateji config
+    symbolConfig: {
+      BTCUSDT: { combo: 'WT+RSI+EMA11+EMAFilter', interval: '4h', slMult: 2, tpRatio: 2 },
+      ETHUSDT: { combo: 'WT+Fisher+FVG',          interval: '2h', slMult: 3, tpRatio: 2 },
+      SOLUSDT: { combo: 'WT+Fisher+RSI',           interval: '4h', slMult: 2, tpRatio: 2 },
+      XRPUSDT: { combo: 'RSI+EMA11+BoS',           interval: '4h', slMult: 2, tpRatio: 2 },
+      SUIUSDT: { combo: 'WT+Fisher+EMA11',         interval: '4h', slMult: 2, tpRatio: 2 },
+      HBARUSDT:{ combo: 'WT+RSI+BoS',              interval: '4h', slMult: 2, tpRatio: 2 },
+    } as Record<string, { combo: string; interval: string; slMult: number; tpRatio: number }>,
     us: {
       symbols: ['AAPL', 'AMZN', 'INTC', 'META', 'NVDA'],
       interval: '1d' as string,

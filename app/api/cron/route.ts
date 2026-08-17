@@ -1,18 +1,18 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { evaluate, calcAdaptiveLookback, calcFisher } from '@/lib/strategy'
+import { evaluateSymbol, calcAdaptiveLookback, calcFisher } from '@/lib/strategy'
 import { EMA } from 'technicalindicators'
 import { CONFIG } from '@/lib/config'
 import type { Candle } from '@/lib/strategy'
 import type { InstrumentState } from '@/lib/types'
 
 const SYMBOLS = CONFIG.venues.crypto.symbols
-const INTERVAL = CONFIG.venues.crypto.interval
+const SYMBOL_CONFIG = CONFIG.venues.symbolConfig
 
-async function fetchCandles(symbol: string): Promise<Candle[]> {
+async function fetchCandles(symbol: string, interval: string): Promise<Candle[]> {
   try {
     const res = await fetch(
-      `https://data-api.binance.vision/api/v3/klines?symbol=${symbol}&interval=${INTERVAL}&limit=${CONFIG.fetchLimit}`
+      `https://data-api.binance.vision/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${CONFIG.fetchLimit}`
     )
     if (!res.ok) {
       console.error(`Binance Vision ${symbol} HTTP ${res.status}`)
@@ -70,7 +70,9 @@ export async function POST(request: Request) {
     (completedTrades ?? []) as { trigger_lookback: number; profit_loss: number }[]
   )
 
-  const candleResults = await Promise.allSettled(SYMBOLS.map(s => fetchCandles(s)))
+  const candleResults = await Promise.allSettled(
+    SYMBOLS.map(s => fetchCandles(s, SYMBOL_CONFIG[s]?.interval ?? '4h'))
+  )
 
   const candleMap: Record<string, import('@/lib/strategy').Candle[]> = {}
   const candleDebug: Record<string, number> = {}
@@ -178,10 +180,12 @@ export async function POST(request: Request) {
       trigger_direction: null,
     }
 
-    const result = evaluate(candles, equity, available, instrState, triggerLookback)
+    const symCfg = SYMBOL_CONFIG[symbol] ?? { combo: 'WT+RSI+EMA11+EMAFilter', slMult: 2, tpRatio: 2 }
+    const result = evaluateSymbol(candles, symCfg.combo, symCfg.slMult, symCfg.tpRatio, equity, available)
+    const intervalHours = parseInt((SYMBOL_CONFIG[symbol]?.interval ?? '4h').replace('h', ''))
     const lastCandle = candles[candles.length - 1]
     const candleOpen = new Date(lastCandle.time).toISOString()
-    const candleClose = new Date(lastCandle.time + 4 * 3600000).toISOString()
+    const candleClose = new Date(lastCandle.time + intervalHours * 3600000).toISOString()
 
     // Kararı kaydet
     await supabase.from('decisions').insert({

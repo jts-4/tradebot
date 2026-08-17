@@ -185,6 +185,125 @@ export function evaluate(
   return { signal, triggerFired, triggerDirection, fisherActive, notional, indicators, conditions, missing, qty, entryPrice, stopPrice, targetPrice }
 }
 
+export function evaluateSymbol(
+  candles: Candle[],
+  combo: string,
+  slMult: number,
+  tpRatio: number,
+  equity: number,
+  available: number,
+): SignalResult {
+  const closes = candles.map(c => c.close)
+  const highs = candles.map(c => c.high)
+  const lows = candles.map(c => c.low)
+
+  const ema11arr = EMA.calculate({ period: 11, values: closes })
+  const ema50arr = EMA.calculate({ period: 50, values: closes })
+  const ema200arr = EMA.calculate({ period: 200, values: closes })
+  const rsi14arr = RSI.calculate({ period: 14, values: closes })
+  const atr14arr = ATR.calculate({ period: 14, high: highs, low: lows, close: closes })
+
+  const lastClose = closes[closes.length - 1]
+  const prevClose = closes[closes.length - 2]
+  const lastEma11 = ema11arr[ema11arr.length - 1]
+  const prevEma11 = ema11arr[ema11arr.length - 2]
+  const lastEma50 = ema50arr[ema50arr.length - 1]
+  const lastEma200 = ema200arr[ema200arr.length - 1]
+  const lastRsi = rsi14arr[rsi14arr.length - 1]
+  const prevRsi = rsi14arr[rsi14arr.length - 2]
+  const lastAtr = atr14arr[atr14arr.length - 1]
+
+  const { wt1, wt2, prevWt1, prevWt2 } = calcWaveTrend(candles)
+  const { fisher, trigger: fishTrig, prevFisher, prevTrigger } = calcFisher(candles)
+
+  const wtCrossUp   = prevWt1 < prevWt2 && wt1 > wt2
+  const wtCrossDown = prevWt1 > prevWt2 && wt1 < wt2
+  const fishCrossUp   = prevFisher < prevTrigger && fisher > fishTrig
+  const fishCrossDown = prevFisher > prevTrigger && fisher < fishTrig
+  const rsiCrossUp   = prevRsi < 50 && lastRsi >= 50
+  const rsiCrossDown = prevRsi > 50 && lastRsi <= 50
+  const ema11CrossUp   = prevClose < prevEma11 && lastClose > lastEma11
+  const ema11CrossDown = prevClose > prevEma11 && lastClose < lastEma11
+  const aboveEma50200 = lastClose > lastEma50 && lastClose > lastEma200
+  const belowEma50200 = lastClose < lastEma50 && lastClose < lastEma200
+
+  // FVG: 3 mumlu boşluk
+  const bullFVG = candles.length >= 3 && candles[candles.length - 3].high < candles[candles.length - 1].low
+  const bearFVG = candles.length >= 3 && candles[candles.length - 3].low > candles[candles.length - 1].high
+
+  // BoS: son 10 mumun swing high/low kırılması
+  const bSlice = candles.slice(-11, -1)
+  const swingHigh = Math.max(...bSlice.map(c => c.high))
+  const swingLow  = Math.min(...bSlice.map(c => c.low))
+  const bullBoS = lastClose > swingHigh
+  const bearBoS = lastClose < swingLow
+
+  const longMap: Record<string, boolean> = {
+    WT: wtCrossUp, Fisher: fishCrossUp, RSI: rsiCrossUp,
+    EMA11: ema11CrossUp, EMAFilter: aboveEma50200,
+    FVG: bullFVG, BoS: bullBoS,
+  }
+  const shortMap: Record<string, boolean> = {
+    WT: wtCrossDown, Fisher: fishCrossDown, RSI: rsiCrossDown,
+    EMA11: ema11CrossDown, EMAFilter: belowEma50200,
+    FVG: bearFVG, BoS: bearBoS,
+  }
+
+  const parts = combo.split('+')
+  const isLong  = parts.every(p => longMap[p]  ?? false)
+  const isShort = parts.every(p => shortMap[p] ?? false)
+  const signal: 'LONG' | 'SHORT' | 'NONE' = isLong ? 'LONG' : isShort ? 'SHORT' : 'NONE'
+  const dir = isLong ? 'LONG' : isShort ? 'SHORT' : null
+
+  const triggerFired = wtCrossUp || wtCrossDown
+  const triggerDirection: 'LONG' | 'SHORT' | null = wtCrossUp ? 'LONG' : wtCrossDown ? 'SHORT' : null
+  const fisherActive = fishCrossUp || fishCrossDown
+
+  const stopDist  = slMult * lastAtr
+  const slip      = CONFIG.account.slippage
+  const entryPrice = dir === 'SHORT' ? lastClose * (1 - slip) : lastClose * (1 + slip)
+  const qty        = Math.min(
+    (equity * CONFIG.account.riskPerTrade) / stopDist,
+    (available * CONFIG.account.maxNotionalPct) / entryPrice
+  )
+  const notional   = qty * entryPrice
+  const stopPrice  = dir === 'LONG' ? entryPrice - stopDist : entryPrice + stopDist
+  const targetPrice = dir === 'LONG'
+    ? entryPrice + stopDist * tpRatio
+    : entryPrice - stopDist * tpRatio
+
+  const indicators = [
+    { label: 'Fiyat',       value: lastClose.toFixed(2) },
+    { label: 'EMA11',       value: lastEma11.toFixed(2) },
+    { label: 'EMA50',       value: lastEma50.toFixed(2) },
+    { label: 'EMA200',      value: lastEma200.toFixed(2) },
+    { label: 'RSI14',       value: lastRsi.toFixed(1) },
+    { label: 'ATR14',       value: lastAtr.toFixed(4) },
+    { label: 'WT1',         value: wt1.toFixed(2) },
+    { label: 'WT2',         value: wt2.toFixed(2) },
+    { label: 'Fisher',      value: fisher.toFixed(2) },
+    { label: 'Fisher Trig', value: fishTrig.toFixed(2) },
+  ]
+
+  const activeMap = dir === 'SHORT' ? shortMap : longMap
+  const conditions = parts.map(p => ({
+    label: p,
+    passed: activeMap[p] ?? false,
+    value: '-',
+    required: '-',
+  }))
+
+  const missing = conditions
+    .filter(c => !c.passed)
+    .map(c => ({ label: c.label, current: '-', target: '-', gap: '-' }))
+
+  if (signal !== 'NONE' && notional < CONFIG.account.minNotional) {
+    return { signal: 'NONE', triggerFired, triggerDirection, fisherActive, notional, indicators, conditions, missing, qty, entryPrice, stopPrice, targetPrice }
+  }
+
+  return { signal, triggerFired, triggerDirection, fisherActive, notional, indicators, conditions, missing, qty, entryPrice, stopPrice, targetPrice }
+}
+
 export function calcAdaptiveLookback(trades: { trigger_lookback: number; profit_loss: number }[]): number {
   if (trades.length < 30) return CONFIG.triggerLookback
 
