@@ -163,11 +163,103 @@ function backtest(candles4h: Candle[], wtCandles: Candle[], slMult: number, tpRa
   }
 }
 
-export async function GET(request: Request) {
+function backtest2(candles: Candle[], slMult: number, tpRatio: number, minConditions = 3): {
+  trades: number; wins: number; winRate: number; profitFactor: number; totalPL: number
+} {
+  const closes = candles.map(c => c.close)
+  const highs = candles.map(c => c.high)
+  const lows = candles.map(c => c.low)
+  const results: TradeResult[] = []
+
+  for (let i = 50; i < candles.length - 1; i++) {
+    const slice = candles.slice(0, i + 1)
+    const sliceCloses = closes.slice(0, i + 1)
+    const sliceHighs = highs.slice(0, i + 1)
+    const sliceLows = lows.slice(0, i + 1)
+
+    const ema11arr = EMA.calculate({ period: 11, values: sliceCloses })
+    const rsi14arr = RSI.calculate({ period: 14, values: sliceCloses })
+    const atr14arr = ATR.calculate({ period: 14, high: sliceHighs, low: sliceLows, close: sliceCloses })
+    const { wt1, wt2, prevWt1, prevWt2 } = calcWaveTrend(slice)
+    const { fisher, trigger: fishTrig, prevFisher, prevTrigger } = calcFisher(slice)
+
+    const lastClose = sliceCloses[sliceCloses.length - 1]
+    const prevClose = sliceCloses[sliceCloses.length - 2]
+    const lastEma11 = ema11arr[ema11arr.length - 1]
+    const prevEma11 = ema11arr[ema11arr.length - 2]
+    const lastRsi = rsi14arr[rsi14arr.length - 1]
+    const prevRsi = rsi14arr[rsi14arr.length - 2]
+    const lastAtr = atr14arr[atr14arr.length - 1]
+
+    const longConds = [
+      prevWt1 < prevWt2 && wt1 > wt2,                          // WT yukarı
+      prevFisher < prevTrigger && fisher > fishTrig,             // Fisher yukarı
+      prevRsi < 50 && lastRsi >= 50,                            // RSI 50 üzerine
+      prevClose < prevEma11 && lastClose > lastEma11,           // EMA11 yukarı
+    ]
+    const shortConds = [
+      prevWt1 > prevWt2 && wt1 < wt2,                          // WT aşağı
+      prevFisher > prevTrigger && fisher < fishTrig,             // Fisher aşağı
+      prevRsi > 50 && lastRsi <= 50,                            // RSI 50 altına
+      prevClose > prevEma11 && lastClose < lastEma11,           // EMA11 aşağı
+    ]
+
+    const longScore = longConds.filter(Boolean).length
+    const shortScore = shortConds.filter(Boolean).length
+    const isLong = longScore >= minConditions
+    const isShort = shortScore >= minConditions
+
+    if (!isLong && !isShort) continue
+    if (isLong && isShort) continue // çakışma, atla
+
+    const entry = lastClose
+    const stopDist = slMult * lastAtr
+    const stop = isLong ? entry - stopDist : entry + stopDist
+    const target = isLong ? entry + stopDist * tpRatio : entry - stopDist * tpRatio
+
+    let exitResult: TradeResult | null = null
+    for (let j = i + 1; j < candles.length; j++) {
+      const c = candles[j]
+      const futureCloses = closes.slice(0, j + 1)
+      const futureEma11 = EMA.calculate({ period: 11, values: futureCloses })
+      const futureLastEma11 = futureEma11[futureEma11.length - 1]
+      const futureSlice = candles.slice(0, j + 1)
+      const { fisher: ff, trigger: ft, prevFisher: pf, prevTrigger: pt } = calcFisher(futureSlice)
+      const fisherExit = isLong ? pf > pt && ff < ft : pf < pt && ff > ft
+      const ema11Exit = isLong && c.close < futureLastEma11
+
+      if (isLong) {
+        if (c.low <= stop) { exitResult = { pl: stop - entry, exit: 'SL' }; break }
+        if (c.high >= target) { exitResult = { pl: target - entry, exit: 'TP' }; break }
+        if (fisherExit) { exitResult = { pl: c.close - entry, exit: 'FISHER' }; break }
+        if (ema11Exit) { exitResult = { pl: c.close - entry, exit: 'EMA11' }; break }
+      } else {
+        if (c.high >= stop) { exitResult = { pl: entry - stop, exit: 'SL' }; break }
+        if (c.low <= target) { exitResult = { pl: entry - target, exit: 'TP' }; break }
+        if (fisherExit) { exitResult = { pl: entry - c.close, exit: 'FISHER' }; break }
+      }
+    }
+    if (exitResult) results.push(exitResult)
+  }
+
+  const wins = results.filter(r => r.pl > 0).length
+  const grossWin = results.filter(r => r.pl > 0).reduce((s, r) => s + r.pl, 0)
+  const grossLoss = Math.abs(results.filter(r => r.pl <= 0).reduce((s, r) => s + r.pl, 0))
+  return {
+    trades: results.length,
+    wins,
+    winRate: results.length > 0 ? Math.round((wins / results.length) * 100) : 0,
+    profitFactor: grossLoss > 0 ? parseFloat((grossWin / grossLoss).toFixed(2)) : grossWin > 0 ? 999 : 0,
+    totalPL: parseFloat(results.reduce((s, r) => s + r.pl, 0).toFixed(2)),
+  }
+}
+
+
   const { searchParams } = new URL(request.url)
   const symbol = searchParams.get('symbol') ?? 'BTCUSDT'
   const wtInterval = searchParams.get('wtInterval') ?? '4h'
   const emaPeriod = parseInt(searchParams.get('emaPeriod') ?? '11')
+  const strategy = searchParams.get('strategy') ?? 'current' // 'current' veya 'new'
 
   if (!SYMBOLS.includes(symbol)) {
     return NextResponse.json({ error: 'Geçersiz sembol' }, { status: 400 })
@@ -196,17 +288,36 @@ export async function GET(request: Request) {
     }
   }
 
+  // Yeni strateji: 4 koşuldan en az 3'ü
+  const newStratResults: Record<string, ReturnType<typeof backtest2> & { slMult: number; tpRatio: number }> = {}
+  let bestNew = { key: '', profitFactor: 0 }
+  for (const sl of SL_MULTS) {
+    for (const tp of TP_RATIOS) {
+      const key = `SL${sl}xATR_TP${tp}xRR`
+      const r = backtest2(strategy === 'new' ? candles4h : candles4h, sl, tp, 3)
+      newStratResults[key] = { ...r, slMult: sl, tpRatio: tp }
+      if (r.profitFactor > bestNew.profitFactor && r.trades >= 5) bestNew = { key, profitFactor: r.profitFactor }
+    }
+  }
+
   return NextResponse.json({
     symbol,
     wtInterval,
     emaPeriod,
     candles4h: candles4h.length,
     wtCandles: wtCandlesFinal.length,
+    // Mevcut strateji (2h WT + EMA50/200)
     best: best.key,
     bestConfig: results[best.key],
     bestWithEmaFilter: bestEma.key,
     bestEmaConfig: resultsEma[bestEma.key],
     current: results['SL2xATR_TP2.5xRR'],
     currentWithEma: resultsEma['SL2xATR_TP2.5xRR'],
+    // Yeni strateji (4'ten 3 koşul)
+    newStrategy: {
+      best: bestNew.key,
+      bestConfig: newStratResults[bestNew.key],
+      current: newStratResults['SL3xATR_TP3xRR'],
+    }
   })
 }
