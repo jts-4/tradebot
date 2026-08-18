@@ -14,6 +14,8 @@ const SYMBOLS = [
   'MGROS', 'ASTOR',
 ]
 
+const INDICES = ['XU100', 'XBANK']
+
 type YahooQuote = { open: number | null; high: number | null; low: number | null; close: number | null; volume: number | null; date: Date }
 
 async function fetchCandles(ticker: string, interval: '4h' | '2h', limit = 200): Promise<Candle[]> {
@@ -70,5 +72,23 @@ export async function GET() {
       : { symbol: SYMBOLS[i], error: (r.reason as Error).message }
   )
 
-  return NextResponse.json({ data, updatedAt: new Date().toISOString() })
+  const indexResults = await Promise.allSettled(
+    INDICES.map(async (sym) => {
+      const [candles4h, candles2h] = await Promise.all([
+        fetchCandles(sym, '4h'),
+        fetchCandles(sym, '2h'),
+      ])
+      const ind4h = calcIndicators(candles4h, { k: 3, d: 3 })
+      const ind2h = calcIndicators(candles2h, { k: 2, d: 2 })
+      return { symbol: sym, lastClose: candles4h[candles4h.length - 1]?.close ?? 0, lastUpdated: new Date().toISOString(), tf4h: ind4h, tf2h: ind2h }
+    })
+  )
+
+  const indices = indexResults.map((r, i) =>
+    r.status === 'fulfilled'
+      ? r.value
+      : { symbol: INDICES[i], error: (r.reason as Error).message }
+  )
+
+  return NextResponse.json({ data, indices, updatedAt: new Date().toISOString() })
 }

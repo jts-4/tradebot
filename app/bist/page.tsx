@@ -279,6 +279,7 @@ function StockCard({ stock }: { stock: StockData }) {
 
 export default function BistPage() {
   const [data, setData] = useState<StockData[]>([])
+  const [indices, setIndices] = useState<StockData[]>([])
   const [loading, setLoading] = useState(true)
   const [updatedAt, setUpdatedAt] = useState<string>('')
   const [error, setError] = useState<string>('')
@@ -291,6 +292,7 @@ export default function BistPage() {
       const res = await fetch('/api/bist')
       const json = await res.json()
       setData(json.data)
+      setIndices(json.indices ?? [])
       setUpdatedAt(json.updatedAt)
     } catch {
       setError('Veri alınamadı')
@@ -374,10 +376,29 @@ export default function BistPage() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {(filterSignals ? signalStocks : data).map(stock => (
-            <StockCard key={stock.symbol} stock={stock} />
-          ))}
+        <div className="space-y-6">
+          {/* Hisse Senetleri */}
+          <div>
+            <h2 className="text-base font-bold mb-3" style={{ color: '#0abfbc' }}>HİSSE SENETLERİ</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {(filterSignals ? signalStocks : data).map(stock => (
+                <StockCard key={stock.symbol} stock={stock} />
+              ))}
+            </div>
+          </div>
+
+          {/* İnce çizgi */}
+          <hr className="border-gray-800" />
+
+          {/* Endeksler */}
+          <div>
+            <h2 className="text-base font-bold mb-3" style={{ color: '#0abfbc' }}>ENDEKSLER</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {indices.map(stock => (
+                <StockCard key={stock.symbol} stock={stock} />
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
