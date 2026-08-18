@@ -23,6 +23,8 @@ type IndicatorResult = {
   maBelowWhich: string
   rsi: number
   rsiSignal: boolean
+  t3: number
+  t3Bullish: boolean
   volume: number
   avgVolume: number
   volumeAboveAvg: boolean
@@ -112,6 +114,13 @@ function TFSection({ label, ind, lastClose }: { label: string; ind: IndicatorRes
         <Badge label="WT" active={ind.wtSignal} />
         <Badge label="Fisher9" active={ind.fisherSignal} />
         <Badge label="RSI14" active={ind.rsiSignal} />
+        <span className={`px-2 py-0.5 rounded text-xs font-medium border ${
+          ind.t3Bullish
+            ? 'bg-green-500/20 text-green-300 border-green-500/40'
+            : 'bg-red-500/20 text-red-400 border-red-500/40'
+        }`}>
+          {ind.t3Bullish ? '▲' : '▼'} T3
+        </span>
         {ind.goldenCross && <Badge label="" active={false} special="golden" />}
         {ind.halfGoldenCross && !ind.goldenCross && <Badge label="" active={false} special="half-golden" />}
       </div>

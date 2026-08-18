@@ -1,7 +1,14 @@
 import { EMA, RSI } from 'technicalindicators'
 import type { Candle } from './types'
 
-// ── Divergence ──────────────────────────────────────────────────────────────
+function calcSMA(values: number[], period: number): number[] {
+  const result: number[] = []
+  for (let i = period - 1; i < values.length; i++) {
+    const sum = values.slice(i - period + 1, i + 1).reduce((a, b) => a + b, 0)
+    result.push(sum / period)
+  }
+  return result
+}
 
 function calcMACD(closes: number[]) {
   const fast = EMA.calculate({ period: 12, values: closes })
@@ -83,6 +90,28 @@ function calcStochastic(candles: Candle[], period = 14, smooth = 3) {
   return calcSMA(kRaw, smooth)
 }
 
+function calcT3(closes: number[], period = 7, b = 0.7): number[] {
+  const c1 = -b * b * b
+  const c2 = 3 * b * b + 3 * b * b * b
+  const c3 = -6 * b * b - 3 * b - 3 * b * b * b
+  const c4 = 1 + 3 * b + b * b * b + 3 * b * b
+
+  const e1 = EMA.calculate({ period, values: closes })
+  const e2 = EMA.calculate({ period, values: e1 })
+  const e3 = EMA.calculate({ period, values: e2 })
+  const e4 = EMA.calculate({ period, values: e3 })
+  const e5 = EMA.calculate({ period, values: e4 })
+  const e6 = EMA.calculate({ period, values: e5 })
+
+  const n = e6.length
+  function tail(arr: number[]): number[] {
+    return arr.length >= n ? arr.slice(arr.length - n) : [...Array(n - arr.length).fill(NaN), ...arr]
+  }
+
+  const a3 = tail(e3), a4 = tail(e4), a5 = tail(e5)
+  return e6.map((v6, i) => c1 * v6 + c2 * a5[i] + c3 * a4[i] + c4 * a3[i])
+}
+
 export type DivergenceResult = {
   bullish: number
   bearish: number
@@ -93,16 +122,16 @@ export type DivergenceResult = {
 export function calcDivergence(candles: Candle[]): DivergenceResult {
   const closes = candles.map(c => c.close)
   const n = candles.length
-  const lookback = 50 // kaç mum geriye bak
+  const lookback = 50
 
-  const rsiArr   = RSI.calculate({ period: 14, values: closes })
+  const rsiArr = RSI.calculate({ period: 14, values: closes })
   const { macdLine, hist } = calcMACD(closes)
   const stochArr = calcStochastic(candles)
-  const cciArr   = calcCCI(candles)
-  const momArr   = calcMomentum(closes)
-  const obvArr   = calcOBV(candles)
-  const cmfArr   = calcCMF(candles)
-  const mfiArr   = calcMFI(candles)
+  const cciArr = calcCCI(candles)
+  const momArr = calcMomentum(closes)
+  const obvArr = calcOBV(candles)
+  const cmfArr = calcCMF(candles)
+  const mfiArr = calcMFI(candles)
 
   function align(arr: number[]): number[] {
     if (arr.length >= n) return arr.slice(arr.length - n)
@@ -124,105 +153,62 @@ export function calcDivergence(candles: Candle[]): DivergenceResult {
   const bullishIndicators: string[] = []
   const bearishIndicators: string[] = []
 
-  // Son kapanış değerleri
-  const lastClose = closes[n - 1]
-  const lastClose2 = closes[n - 2]
-  const lastClose3 = closes[n - 3]
-  const currentLow  = Math.min(lastClose, lastClose2, lastClose3)
-  const currentHigh = Math.max(lastClose, lastClose2, lastClose3)
-
-  // Geçmiş penceredeki en düşük ve en yüksek fiyat
-  const pastCloses = closes.slice(n - 1 - lookback, n - 3)
-  const pastLow  = Math.min(...pastCloses)
-  const pastHigh = Math.max(...pastCloses)
+  const recentCloses = closes.slice(n - 3)
+  const currentLow  = Math.min(...recentCloses)
+  const currentHigh = Math.max(...recentCloses)
+  const pastCloses  = closes.slice(n - 3 - lookback, n - 3)
+  const pastLow     = Math.min(...pastCloses)
+  const pastHigh    = Math.max(...pastCloses)
   const pastLowIdx  = pastCloses.lastIndexOf(pastLow)
   const pastHighIdx = pastCloses.lastIndexOf(pastHigh)
 
   for (const ind of indicators) {
     const vals = ind.values
-    const lastVal  = vals[n - 1]
-    const lastVal2 = vals[n - 2]
-    const lastVal3 = vals[n - 3]
-    if (isNaN(lastVal) || isNaN(lastVal2) || isNaN(lastVal3)) continue
+    const recentVals = vals.slice(n - 3)
+    const pastVals   = vals.slice(n - 3 - lookback, n - 3)
+    if (recentVals.some(v => isNaN(v)) || pastVals.length === 0) continue
 
-    const currentIndLow  = Math.min(lastVal, lastVal2, lastVal3)
-    const currentIndHigh = Math.max(lastVal, lastVal2, lastVal3)
+    const currentIndLow  = Math.min(...recentVals)
+    const currentIndHigh = Math.max(...recentVals)
+    const pastIndLow     = pastVals[pastLowIdx]  ?? Math.min(...pastVals.filter(v => !isNaN(v)))
+    const pastIndHigh    = pastVals[pastHighIdx] ?? Math.max(...pastVals.filter(v => !isNaN(v)))
 
-    // Geçmiş penceredeki indikatör değerleri
-    const pastVals = vals.slice(n - 1 - lookback, n - 3)
-    const pastIndLow  = pastVals[pastLowIdx]  ?? Math.min(...pastVals.filter(v => !isNaN(v)))
-    const pastIndHigh = pastVals[pastHighIdx] ?? Math.max(...pastVals.filter(v => !isNaN(v)))
-
-    // Bullish: fiyat daha düşük dip ama indikatör daha yüksek dip
-    if (currentLow < pastLow && currentIndLow > pastIndLow) {
-      bullishIndicators.push(ind.name)
-    }
-
-    // Bearish: fiyat daha yüksek zirve ama indikatör daha düşük zirve
-    if (currentHigh > pastHigh && currentIndHigh < pastIndHigh) {
-      bearishIndicators.push(ind.name)
-    }
+    if (currentLow < pastLow && currentIndLow > pastIndLow)   bullishIndicators.push(ind.name)
+    if (currentHigh > pastHigh && currentIndHigh < pastIndHigh) bearishIndicators.push(ind.name)
   }
 
-  return {
-    bullish: bullishIndicators.length,
-    bearish: bearishIndicators.length,
-    bullishIndicators,
-    bearishIndicators,
-  }
+  return { bullish: bullishIndicators.length, bearish: bearishIndicators.length, bullishIndicators, bearishIndicators }
 }
 
 export type IndicatorResult = {
-  // StochRSI
-  stochRsiSignal: boolean       // K < 25 iken K, D'yi yukarı kesiyor
+  stochRsiSignal: boolean
   stochRsiK: number
   stochRsiD: number
   stochRsiPrevK: number
   stochRsiPrevD: number
-
-  // EMA10
-  ema10Signal: boolean          // mum kapanışı EMA10 üzerinde
+  ema10Signal: boolean
   ema10: number
-
-  // WT
-  wtSignal: boolean             // sarı al sinyali (oversold'dan yukarı kesişim)
+  wtSignal: boolean
   wt1: number
   wt2: number
-
-  // Fisher9
-  fisherSignal: boolean         // mavi, turuncu'yu 0 altında yukarı kesiyor
+  fisherSignal: boolean
   fisher: number
   fisherTrigger: number
-
-  // MA7, MA14, MA21
   ma7: number
   ma14: number
   ma21: number
-  goldenCross: boolean          // MA7 × MA21 yukarı
-  halfGoldenCross: boolean      // MA7 × MA14 yukarı
-  maBelowWarning: boolean       // fiyat MA7 veya MA14 altında
-  maBelowWhich: string          // "MA7" | "MA14" | "MA7 ve MA14" | ""
-
-  // RSI14
+  goldenCross: boolean
+  halfGoldenCross: boolean
+  maBelowWarning: boolean
+  maBelowWhich: string
   rsi: number
-  rsiSignal: boolean            // 40 altında yukarı yönlü hareket
-
-  // Hacim
+  rsiSignal: boolean
+  t3: number
+  t3Bullish: boolean  // t3 > t3[1] → yeşil al, t3 < t3[1] → kırmızı sat
   volume: number
   avgVolume: number
   volumeAboveAvg: boolean
-
-  // Divergence
   divergence: DivergenceResult
-}
-
-function calcSMA(values: number[], period: number): number[] {
-  const result: number[] = []
-  for (let i = period - 1; i < values.length; i++) {
-    const sum = values.slice(i - period + 1, i + 1).reduce((a, b) => a + b, 0)
-    result.push(sum / period)
-  }
-  return result
 }
 
 function calcStochRSI(closes: number[], rsiPeriod: number, stochPeriod: number, kSmooth: number, dSmooth: number) {
@@ -250,18 +236,16 @@ function calcWT(candles: Candle[], n1 = 10, n2 = 21) {
   const ci = esa.slice(offset2).map((v, i) =>
     (hlc3.slice(offset + offset2)[i] - v) / (0.015 * de[i])
   )
-  const wt1arr = EMA.calculate({ period: n2, values: ci })
-  return wt1arr
+  return EMA.calculate({ period: n2, values: ci })
 }
 
 function calcFisher9(candles: Candle[], period = 9) {
   const fishArr: number[] = []
-  let prevFish = 0
-  let prevValue = 0
+  let prevFish = 0, prevValue = 0
   for (let i = period - 1; i < candles.length; i++) {
     const slice = candles.slice(i - period + 1, i + 1)
     const highest = Math.max(...slice.map(c => c.high))
-    const lowest = Math.min(...slice.map(c => c.low))
+    const lowest  = Math.min(...slice.map(c => c.low))
     const range = highest - lowest
     const hl2 = (candles[i].high + candles[i].low) / 2
     let value = range > 0 ? 2 * ((hl2 - lowest) / range) - 1 : 0
@@ -271,16 +255,13 @@ function calcFisher9(candles: Candle[], period = 9) {
     prevFish = fish
     prevValue = value
   }
-  // trigger = önceki fisher değeri
-  const trigArr = [0, ...fishArr.slice(0, -1)]
-  return { fishArr, trigArr }
+  return { fishArr, trigArr: [0, ...fishArr.slice(0, -1)] }
 }
 
 export function calcIndicators(candles: Candle[], stochSettings: { k: number; d: number }): IndicatorResult {
-  const closes = candles.map(c => c.close)
+  const closes  = candles.map(c => c.close)
   const volumes = candles.map(c => c.volume)
 
-  // MA
   const ma7arr  = calcSMA(closes, 7)
   const ma14arr = calcSMA(closes, 14)
   const ma21arr = calcSMA(closes, 21)
@@ -291,57 +272,51 @@ export function calcIndicators(candles: Candle[], stochSettings: { k: number; d:
   const prevMa14 = ma14arr[ma14arr.length - 2]
   const prevMa21 = ma21arr[ma21arr.length - 2]
 
-  // EMA10
   const ema10arr = EMA.calculate({ period: 10, values: closes })
-  const ema10 = ema10arr[ema10arr.length - 1]
+  const ema10    = ema10arr[ema10arr.length - 1]
   const lastClose = closes[closes.length - 1]
 
-  // RSI14
   const rsiArr = RSI.calculate({ period: 14, values: closes })
-  const rsi = rsiArr[rsiArr.length - 1]
+  const rsi     = rsiArr[rsiArr.length - 1]
   const prevRsi = rsiArr[rsiArr.length - 2]
 
-  // StochRSI (14,14,k,d)
   const { kArr, dArr } = calcStochRSI(closes, 14, 14, stochSettings.k, stochSettings.d)
   const stochK = kArr[kArr.length - 1]
   const stochD = dArr[dArr.length - 1]
   const prevK  = kArr[kArr.length - 2]
   const prevD  = dArr[dArr.length - 2]
 
-  // WT
-  const wt1arr = calcWT(candles)
-  const wt1 = wt1arr[wt1arr.length - 1]
+  const wt1arr  = calcWT(candles)
+  const wt1     = wt1arr[wt1arr.length - 1]
   const prevWt1 = wt1arr[wt1arr.length - 2]
-  const wt2 = wt1arr.slice(-4).reduce((a, b) => a + b, 0) / 4
+  const wt2     = wt1arr.slice(-4).reduce((a, b) => a + b, 0) / 4
   const prevWt2 = wt1arr.slice(-5, -1).reduce((a, b) => a + b, 0) / 4
 
-  // Fisher9
   const { fishArr, trigArr } = calcFisher9(candles)
-  const fisher = fishArr[fishArr.length - 1]
+  const fisher        = fishArr[fishArr.length - 1]
   const fisherTrigger = trigArr[trigArr.length - 1]
-  const prevFisher = fishArr[fishArr.length - 2]
+  const prevFisher    = fishArr[fishArr.length - 2]
   const prevFisherTrig = trigArr[trigArr.length - 2]
 
-  // Hacim (20 mum ortalaması)
-  const avgVolume = volumes.slice(-20).reduce((a, b) => a + b, 0) / 20
-  const volume = volumes[volumes.length - 1]
+  const t3arr   = calcT3(closes)
+  const t3      = t3arr[t3arr.length - 1]
+  const prevT3  = t3arr[t3arr.length - 2]
+  const t3Bullish = t3 > prevT3
 
-  // Sinyal koşulları
+  const avgVolume = volumes.slice(-20).reduce((a, b) => a + b, 0) / 20
+  const volume    = volumes[volumes.length - 1]
+
   const stochRsiSignal = prevK < 25 && prevK < prevD && stochK > stochD
   const ema10Signal    = lastClose > ema10
   const wtSignal       = prevWt1 < prevWt2 && wt1 > wt2 && prevWt1 < -60
   const fisherSignal   = prevFisher < prevFisherTrig && fisher > fisherTrigger && prevFisher < 0
-
   const goldenCross     = prevMa7 < prevMa21 && ma7 > ma21
   const halfGoldenCross = prevMa7 < prevMa14 && ma7 > ma14
-
   const belowMa7  = lastClose < ma7
   const belowMa14 = lastClose < ma14
   const maBelowWarning = belowMa7 || belowMa14
-  const maBelowWhich = belowMa7 && belowMa14 ? 'MA7 ve MA14' : belowMa7 ? 'MA7' : belowMa14 ? 'MA14' : ''
-
+  const maBelowWhich   = belowMa7 && belowMa14 ? 'MA7 ve MA14' : belowMa7 ? 'MA7' : belowMa14 ? 'MA14' : ''
   const rsiSignal = prevRsi < 40 && rsi > prevRsi
-
   const divergence = calcDivergence(candles)
 
   return {
@@ -352,6 +327,7 @@ export function calcIndicators(candles: Candle[], stochSettings: { k: number; d:
     ma7, ma14, ma21,
     goldenCross, halfGoldenCross, maBelowWarning, maBelowWhich,
     rsi, rsiSignal,
+    t3, t3Bullish,
     volume, avgVolume, volumeAboveAvg: volume > avgVolume,
     divergence,
   }
