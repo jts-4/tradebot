@@ -1,6 +1,177 @@
 import { EMA, RSI } from 'technicalindicators'
 import type { Candle } from './types'
 
+// ── Divergence ──────────────────────────────────────────────────────────────
+
+function calcMACD(closes: number[]) {
+  const fast = EMA.calculate({ period: 12, values: closes })
+  const slow = EMA.calculate({ period: 26, values: closes })
+  const len = Math.min(fast.length, slow.length)
+  const macdLine = fast.slice(fast.length - len).map((v, i) => v - slow[slow.length - len + i])
+  const signal = EMA.calculate({ period: 9, values: macdLine })
+  const hist = macdLine.slice(macdLine.length - signal.length).map((v, i) => v - signal[i])
+  return { macdLine: macdLine.slice(macdLine.length - signal.length), hist }
+}
+
+function calcCCI(candles: Candle[], period = 10) {
+  const tp = candles.map(c => (c.high + c.low + c.close) / 3)
+  const result: number[] = []
+  for (let i = period - 1; i < tp.length; i++) {
+    const slice = tp.slice(i - period + 1, i + 1)
+    const mean = slice.reduce((a, b) => a + b, 0) / period
+    const md = slice.reduce((a, b) => a + Math.abs(b - mean), 0) / period
+    result.push(md === 0 ? 0 : (tp[i] - mean) / (0.015 * md))
+  }
+  return result
+}
+
+function calcMomentum(closes: number[], period = 10) {
+  return closes.slice(period).map((v, i) => v - closes[i])
+}
+
+function calcOBV(candles: Candle[]) {
+  const obv: number[] = [0]
+  for (let i = 1; i < candles.length; i++) {
+    const prev = obv[obv.length - 1]
+    if (candles[i].close > candles[i - 1].close) obv.push(prev + candles[i].volume)
+    else if (candles[i].close < candles[i - 1].close) obv.push(prev - candles[i].volume)
+    else obv.push(prev)
+  }
+  return obv
+}
+
+function calcCMF(candles: Candle[], period = 21) {
+  const result: number[] = []
+  for (let i = period - 1; i < candles.length; i++) {
+    const slice = candles.slice(i - period + 1, i + 1)
+    let cmfv = 0, vol = 0
+    for (const c of slice) {
+      const range = c.high - c.low
+      const mfm = range > 0 ? ((c.close - c.low) - (c.high - c.close)) / range : 0
+      cmfv += mfm * c.volume
+      vol += c.volume
+    }
+    result.push(vol > 0 ? cmfv / vol : 0)
+  }
+  return result
+}
+
+function calcMFI(candles: Candle[], period = 14) {
+  const tp = candles.map(c => (c.high + c.low + c.close) / 3)
+  const result: number[] = []
+  for (let i = period; i < candles.length; i++) {
+    let posFlow = 0, negFlow = 0
+    for (let j = i - period + 1; j <= i; j++) {
+      const mf = tp[j] * candles[j].volume
+      if (tp[j] > tp[j - 1]) posFlow += mf
+      else negFlow += mf
+    }
+    result.push(negFlow === 0 ? 100 : 100 - 100 / (1 + posFlow / negFlow))
+  }
+  return result
+}
+
+function calcStochastic(candles: Candle[], period = 14, smooth = 3) {
+  const kRaw: number[] = []
+  for (let i = period - 1; i < candles.length; i++) {
+    const slice = candles.slice(i - period + 1, i + 1)
+    const highest = Math.max(...slice.map(c => c.high))
+    const lowest = Math.min(...slice.map(c => c.low))
+    const range = highest - lowest
+    kRaw.push(range > 0 ? ((candles[i].close - lowest) / range) * 100 : 50)
+  }
+  return calcSMA(kRaw, smooth)
+}
+
+export type DivergenceResult = {
+  bullish: number
+  bearish: number
+  bullishIndicators: string[]
+  bearishIndicators: string[]
+}
+
+export function calcDivergence(candles: Candle[]): DivergenceResult {
+  const closes = candles.map(c => c.close)
+  const n = candles.length
+  const lookback = 50 // kaç mum geriye bak
+
+  const rsiArr   = RSI.calculate({ period: 14, values: closes })
+  const { macdLine, hist } = calcMACD(closes)
+  const stochArr = calcStochastic(candles)
+  const cciArr   = calcCCI(candles)
+  const momArr   = calcMomentum(closes)
+  const obvArr   = calcOBV(candles)
+  const cmfArr   = calcCMF(candles)
+  const mfiArr   = calcMFI(candles)
+
+  function align(arr: number[]): number[] {
+    if (arr.length >= n) return arr.slice(arr.length - n)
+    return [...Array(n - arr.length).fill(NaN), ...arr]
+  }
+
+  const indicators: { name: string; values: number[] }[] = [
+    { name: 'RSI',   values: align(rsiArr) },
+    { name: 'MACD',  values: align(macdLine) },
+    { name: 'Hist',  values: align(hist) },
+    { name: 'Stoch', values: align(stochArr) },
+    { name: 'CCI',   values: align(cciArr) },
+    { name: 'MOM',   values: align(momArr) },
+    { name: 'OBV',   values: align(obvArr) },
+    { name: 'CMF',   values: align(cmfArr) },
+    { name: 'MFI',   values: align(mfiArr) },
+  ]
+
+  const bullishIndicators: string[] = []
+  const bearishIndicators: string[] = []
+
+  // Son kapanış değerleri
+  const lastClose = closes[n - 1]
+  const lastClose2 = closes[n - 2]
+  const lastClose3 = closes[n - 3]
+  const currentLow  = Math.min(lastClose, lastClose2, lastClose3)
+  const currentHigh = Math.max(lastClose, lastClose2, lastClose3)
+
+  // Geçmiş penceredeki en düşük ve en yüksek fiyat
+  const pastCloses = closes.slice(n - 1 - lookback, n - 3)
+  const pastLow  = Math.min(...pastCloses)
+  const pastHigh = Math.max(...pastCloses)
+  const pastLowIdx  = pastCloses.lastIndexOf(pastLow)
+  const pastHighIdx = pastCloses.lastIndexOf(pastHigh)
+
+  for (const ind of indicators) {
+    const vals = ind.values
+    const lastVal  = vals[n - 1]
+    const lastVal2 = vals[n - 2]
+    const lastVal3 = vals[n - 3]
+    if (isNaN(lastVal) || isNaN(lastVal2) || isNaN(lastVal3)) continue
+
+    const currentIndLow  = Math.min(lastVal, lastVal2, lastVal3)
+    const currentIndHigh = Math.max(lastVal, lastVal2, lastVal3)
+
+    // Geçmiş penceredeki indikatör değerleri
+    const pastVals = vals.slice(n - 1 - lookback, n - 3)
+    const pastIndLow  = pastVals[pastLowIdx]  ?? Math.min(...pastVals.filter(v => !isNaN(v)))
+    const pastIndHigh = pastVals[pastHighIdx] ?? Math.max(...pastVals.filter(v => !isNaN(v)))
+
+    // Bullish: fiyat daha düşük dip ama indikatör daha yüksek dip
+    if (currentLow < pastLow && currentIndLow > pastIndLow) {
+      bullishIndicators.push(ind.name)
+    }
+
+    // Bearish: fiyat daha yüksek zirve ama indikatör daha düşük zirve
+    if (currentHigh > pastHigh && currentIndHigh < pastIndHigh) {
+      bearishIndicators.push(ind.name)
+    }
+  }
+
+  return {
+    bullish: bullishIndicators.length,
+    bearish: bearishIndicators.length,
+    bullishIndicators,
+    bearishIndicators,
+  }
+}
+
 export type IndicatorResult = {
   // StochRSI
   stochRsiSignal: boolean       // K < 25 iken K, D'yi yukarı kesiyor
@@ -40,6 +211,9 @@ export type IndicatorResult = {
   volume: number
   avgVolume: number
   volumeAboveAvg: boolean
+
+  // Divergence
+  divergence: DivergenceResult
 }
 
 function calcSMA(values: number[], period: number): number[] {
@@ -168,6 +342,8 @@ export function calcIndicators(candles: Candle[], stochSettings: { k: number; d:
 
   const rsiSignal = prevRsi < 40 && rsi > prevRsi
 
+  const divergence = calcDivergence(candles)
+
   return {
     stochRsiSignal, stochRsiK: stochK, stochRsiD: stochD, stochRsiPrevK: prevK, stochRsiPrevD: prevD,
     ema10Signal, ema10,
@@ -177,5 +353,6 @@ export function calcIndicators(candles: Candle[], stochSettings: { k: number; d:
     goldenCross, halfGoldenCross, maBelowWarning, maBelowWhich,
     rsi, rsiSignal,
     volume, avgVolume, volumeAboveAvg: volume > avgVolume,
+    divergence,
   }
 }

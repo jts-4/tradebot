@@ -26,6 +26,12 @@ type IndicatorResult = {
   volume: number
   avgVolume: number
   volumeAboveAvg: boolean
+  divergence: {
+    bullish: number
+    bearish: number
+    bullishIndicators: string[]
+    bearishIndicators: string[]
+  }
 }
 
 type StockData = {
@@ -109,6 +115,28 @@ function TFSection({ label, ind, lastClose }: { label: string; ind: IndicatorRes
         {ind.goldenCross && <Badge label="" active={false} special="golden" />}
         {ind.halfGoldenCross && !ind.goldenCross && <Badge label="" active={false} special="half-golden" />}
       </div>
+
+      {/* Divergence badge */}
+      {(ind.divergence.bullish > 0 || ind.divergence.bearish > 0) && (
+        <div className="flex gap-2">
+          {ind.divergence.bullish > 0 && (
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded text-xs font-semibold"
+              style={{ background: 'rgba(0,255,100,0.08)', border: '1px solid rgba(0,255,100,0.25)', color: '#4dff91' }}>
+              <span>▲</span>
+              <span>Bullish Div {ind.divergence.bullish}</span>
+              <span className="font-normal opacity-70">{ind.divergence.bullishIndicators.join(' · ')}</span>
+            </div>
+          )}
+          {ind.divergence.bearish > 0 && (
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded text-xs font-semibold"
+              style={{ background: 'rgba(255,60,60,0.08)', border: '1px solid rgba(255,60,60,0.25)', color: '#ff6b6b' }}>
+              <span>▼</span>
+              <span>Bearish Div {ind.divergence.bearish}</span>
+              <span className="font-normal opacity-70">{ind.divergence.bearishIndicators.join(' · ')}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {ind.maBelowWarning && (
         <div className="text-xs text-orange-400 bg-orange-900/20 border border-orange-700/30 rounded px-2 py-1">
