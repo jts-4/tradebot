@@ -25,6 +25,8 @@ type IndicatorResult = {
   rsiSignal: boolean
   t3: number
   t3Bullish: boolean
+  distFromLastDip: number
+  lastDipPrice: number
   volume: number
   avgVolume: number
   volumeAboveAvg: boolean
@@ -152,6 +154,17 @@ function TFSection({ label, ind, lastClose }: { label: string; ind: IndicatorRes
           📉 Grafik {ind.maBelowWhich} altında seyrediyor
         </div>
       )}
+
+      <div className="flex items-center gap-1.5 text-xs">
+        <span className="text-gray-500">Son dipten:</span>
+        <span className={`font-mono font-semibold ${
+          ind.distFromLastDip > 20 ? 'text-red-400' :
+          ind.distFromLastDip > 10 ? 'text-yellow-400' : 'text-green-400'
+        }`}>
+          +{ind.distFromLastDip.toFixed(1)}%
+        </span>
+        <span className="text-gray-600 font-mono">₺{ind.lastDipPrice.toFixed(2)}</span>
+      </div>
 
       <div className="grid grid-cols-4 gap-1 text-xs text-gray-500">
         <span>MA7: <span className="text-gray-300 font-mono">{ind.ma7.toFixed(2)}</span></span>

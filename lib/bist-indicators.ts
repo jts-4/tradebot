@@ -204,7 +204,9 @@ export type IndicatorResult = {
   rsi: number
   rsiSignal: boolean
   t3: number
-  t3Bullish: boolean  // t3 > t3[1] → yeşil al, t3 < t3[1] → kırmızı sat
+  t3Bullish: boolean
+  distFromLastDip: number
+  lastDipPrice: number
   volume: number
   avgVolume: number
   volumeAboveAvg: boolean
@@ -319,6 +321,19 @@ export function calcIndicators(candles: Candle[], stochSettings: { k: number; d:
   const rsiSignal = prevRsi < 40 && rsi > prevRsi
   const divergence = calcDivergence(candles)
 
+  // Son swing low: son 30 mum içinde her iki yanda 3 mum daha yüksek olan nokta
+  const lookbackDip = Math.min(30, candles.length - 4)
+  let lastDipPrice = candles[candles.length - 1 - lookbackDip].low
+  for (let i = candles.length - 4; i >= candles.length - 1 - lookbackDip; i--) {
+    const left  = candles.slice(Math.max(0, i - 3), i)
+    const right = candles.slice(i + 1, i + 4)
+    if (left.every(c => c.low >= candles[i].low) && right.every(c => c.low >= candles[i].low)) {
+      lastDipPrice = candles[i].low
+      break
+    }
+  }
+  const distFromLastDip = lastDipPrice > 0 ? ((lastClose - lastDipPrice) / lastDipPrice) * 100 : 0
+
   return {
     stochRsiSignal, stochRsiK: stochK, stochRsiD: stochD, stochRsiPrevK: prevK, stochRsiPrevD: prevD,
     ema10Signal, ema10,
@@ -328,6 +343,7 @@ export function calcIndicators(candles: Candle[], stochSettings: { k: number; d:
     goldenCross, halfGoldenCross, maBelowWarning, maBelowWhich,
     rsi, rsiSignal,
     t3, t3Bullish,
+    distFromLastDip, lastDipPrice,
     volume, avgVolume, volumeAboveAvg: volume > avgVolume,
     divergence,
   }
