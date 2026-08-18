@@ -262,7 +262,7 @@ function calcFisher9(candles: Candle[], period = 9) {
   return { fishArr, trigArr: [0, ...fishArr.slice(0, -1)] }
 }
 
-export function calcIndicators(candles: Candle[], stochSettings: { k: number; d: number }): IndicatorResult {
+export function calcIndicators(candles: Candle[], stochSettings: { k: number; d: number }, strategyWindow = 16): IndicatorResult {
   const closes  = candles.map(c => c.close)
   const volumes = candles.map(c => c.volume)
 
@@ -341,7 +341,7 @@ export function calcIndicators(candles: Candle[], stochSettings: { k: number; d:
 
   // Tetiklenme bulunduysa, sonraki 16 mum içinde EMA10 üstünde kapanış ara
   if (lastTriggerIdx >= 0) {
-    const searchEnd = Math.min(lastTriggerIdx + 16, closes.length - 1)
+    const searchEnd = Math.min(lastTriggerIdx + strategyWindow, closes.length - 1)
     let crossIdx = -1
     for (let j = lastTriggerIdx; j <= searchEnd; j++) {
       const e = ema10Full[j - ema10Offset]

@@ -52,7 +52,7 @@ export async function GET() {
       ])
 
       const ind4h = calcIndicators(candles4h, { k: 3, d: 3 })
-      const ind2h = calcIndicators(candles2h, { k: 2, d: 2 })
+      const ind2h = calcIndicators(candles2h, { k: 2, d: 2 }, 9)
 
       const lastClose = candles4h[candles4h.length - 1]?.close ?? 0
 
@@ -79,7 +79,7 @@ export async function GET() {
         fetchCandles(sym, '2h'),
       ])
       const ind4h = calcIndicators(candles4h, { k: 3, d: 3 })
-      const ind2h = calcIndicators(candles2h, { k: 2, d: 2 })
+      const ind2h = calcIndicators(candles2h, { k: 2, d: 2 }, 9)
       return { symbol: sym, lastClose: candles4h[candles4h.length - 1]?.close ?? 0, lastUpdated: new Date().toISOString(), tf4h: ind4h, tf2h: ind2h }
     })
   )

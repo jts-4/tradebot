@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     SYMBOLS.map(async (sym) => {
       const [c4h, c2h] = await Promise.all([fetchCandles(sym, '4h'), fetchCandles(sym, '2h')])
       const ind4h = calcIndicators(c4h, { k: 3, d: 3 })
-      const ind2h = calcIndicators(c2h, { k: 2, d: 2 })
+      const ind2h = calcIndicators(c2h, { k: 2, d: 2 }, 9)
 
       const sig = (ind: typeof ind4h) => [
         ind.stochRsiSignal && 'StochRSI',
