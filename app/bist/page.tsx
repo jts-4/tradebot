@@ -68,18 +68,23 @@ const LOGOS: Record<string, string> = {
 }
 
 const GOLDEN_RATES: Record<string, { g4: number; h4: number; g2: number; h2: number }> = {
-  GARAN: { g4: 48, h4: 47, g2: 55, h2: 52 },
-  ISCTR: { g4: 75, h4: 63, g2: 54, h2: 52 },
-  TUPRS: { g4: 56, h4: 50, g2: 48, h2: 53 },
-  KCHOL: { g4: 54, h4: 55, g2: 55, h2: 53 },
-  EREGL: { g4: 64, h4: 55, g2: 60, h2: 54 },
-  SAHOL: { g4: 53, h4: 59, g2: 56, h2: 52 },
-  TCELL: { g4: 48, h4: 53, g2: 55, h2: 48 },
-  SASA:  { g4: 48, h4: 35, g2: 39, h2: 51 },
-  ENKAI: { g4: 62, h4: 59, g2: 51, h2: 44 },
-  OYAKC: { g4: 59, h4: 53, g2: 56, h2: 51 },
-  MGROS: { g4: 61, h4: 51, g2: 62, h2: 58 },
-  ASTOR: { g4: 52, h4: 58, g2: 69, h2: 56 },
+  THYAO: { g4: 50, h4: 55, g2: 41, h2: 46 },
+  GARAN: { g4: 43, h4: 42, g2: 52, h2: 44 },
+  AKBNK: { g4: 50, h4: 53, g2: 61, h2: 51 },
+  ISCTR: { g4: 78, h4: 57, g2: 40, h2: 42 },
+  TUPRS: { g4: 71, h4: 55, g2: 53, h2: 47 },
+  YKBNK: { g4: 67, h4: 53, g2: 52, h2: 47 },
+  KCHOL: { g4: 46, h4: 61, g2: 67, h2: 56 },
+  EREGL: { g4: 82, h4: 72, g2: 62, h2: 49 },
+  SAHOL: { g4: 40, h4: 54, g2: 50, h2: 41 },
+  BIMAS: { g4: 73, h4: 53, g2: 52, h2: 52 },
+  TCELL: { g4: 57, h4: 59, g2: 59, h2: 51 },
+  ASELS: { g4: 50, h4: 60, g2: 54, h2: 60 },
+  SASA:  { g4: 38, h4: 32, g2: 36, h2: 48 },
+  ENKAI: { g4: 38, h4: 55, g2: 47, h2: 45 },
+  OYAKC: { g4: 50, h4: 76, g2: 62, h2: 50 },
+  MGROS: { g4: 67, h4: 63, g2: 59, h2: 55 },
+  ASTOR: { g4: 43, h4: 47, g2: 68, h2: 60 },
 }
 
 function Badge({ label, active }: { label: string; active: boolean }) {

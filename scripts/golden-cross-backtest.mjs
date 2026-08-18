@@ -25,7 +25,7 @@ function align(arr, n) {
   return [...Array(n - arr.length).fill(null), ...arr]
 }
 
-async function fetchCandles(ticker, intervalHours, days = 365 * 2) {
+async function fetchCandles(ticker, intervalHours, days = 365) {
   const period1 = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
   const result = await yf.chart(`${ticker}.IS`, { period1, interval: '1h' })
   const quotes = result.quotes.filter(q => q.open != null && q.close != null)
