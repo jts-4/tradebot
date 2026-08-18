@@ -252,6 +252,8 @@ export default function BistPage() {
   const [updatedAt, setUpdatedAt] = useState<string>('')
   const [error, setError] = useState<string>('')
 
+  const [filterSignals, setFilterSignals] = useState(false)
+
   async function load() {
     setLoading(true)
     setError('')
@@ -311,8 +313,20 @@ export default function BistPage() {
       {/* Sinyal özeti */}
       {!loading && signalStocks.length > 0 && (
         <div className="bg-green-900/20 border border-green-700/40 rounded-xl p-3">
-          <div className="text-sm font-semibold text-green-300 mb-2">
-            🟢 {signalStocks.length} hissede aktif sinyal
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm font-semibold text-green-300">
+              🟢 {signalStocks.length} hissede aktif sinyal
+            </div>
+            <button
+              onClick={() => setFilterSignals(f => !f)}
+              className={`text-xs px-3 py-1 rounded font-medium transition-colors ${
+                filterSignals
+                  ? 'bg-green-600 text-white'
+                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+              }`}
+            >
+              {filterSignals ? '✓ Sadece Sinyaller' : 'Sadece Sinyaller'}
+            </button>
           </div>
           <div className="flex flex-wrap gap-2">
             {signalStocks.map(s => (
@@ -333,7 +347,7 @@ export default function BistPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {data.map(stock => (
+          {(filterSignals ? signalStocks : data).map(stock => (
             <StockCard key={stock.symbol} stock={stock} />
           ))}
         </div>
