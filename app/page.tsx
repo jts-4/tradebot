@@ -51,13 +51,6 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 p-4 space-y-4">
 
-      {/* Navigasyon */}
-      <div className="flex items-center gap-3">
-        <span className="text-sm font-semibold text-white">Kripto Bot</span>
-        <span className="text-gray-700">|</span>
-        <a href="/bist" className="text-sm text-gray-400 hover:text-white transition-colors">BIST Analiz →</a>
-      </div>
-
       {/* Scheduler down bandı */}
       {schedulerDown && (
         <div className="bg-red-600 text-white text-center py-2 rounded font-semibold">

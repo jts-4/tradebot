@@ -227,13 +227,6 @@ export default function BistPage() {
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 p-4 space-y-4">
 
-      {/* Navigasyon */}
-      <div className="flex items-center gap-3">
-        <a href="/" className="text-sm text-gray-400 hover:text-white transition-colors">← Kripto Bot</a>
-        <span className="text-gray-700">|</span>
-        <span className="text-sm font-semibold text-white">BIST Analiz</span>
-      </div>
-
       {/* Başlık */}
       <div className="bg-gray-900 rounded-xl p-4 flex items-center justify-between">
         <div>
