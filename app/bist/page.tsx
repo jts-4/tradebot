@@ -67,21 +67,22 @@ const LOGOS: Record<string, string> = {
   ASTOR: 'https://logo.clearbit.com/astorenerjı.com.tr',
 }
 
-function Badge({ label, active, special }: { label: string; active: boolean; special?: 'golden' | 'half-golden' }) {
-  if (special === 'golden') {
-    return (
-      <span className="px-2 py-0.5 rounded text-xs font-semibold bg-yellow-500/20 text-yellow-300 border border-yellow-500/40">
-        🌟 Golden Cross
-      </span>
-    )
-  }
-  if (special === 'half-golden') {
-    return (
-      <span className="px-2 py-0.5 rounded text-xs font-semibold bg-yellow-700/20 text-yellow-400 border border-yellow-700/40">
-        ⭐ Yarı Golden Cross
-      </span>
-    )
-  }
+const GOLDEN_RATES: Record<string, { g4: number; h4: number; g2: number; h2: number }> = {
+  GARAN: { g4: 48, h4: 47, g2: 55, h2: 52 },
+  ISCTR: { g4: 75, h4: 63, g2: 54, h2: 52 },
+  TUPRS: { g4: 56, h4: 50, g2: 48, h2: 53 },
+  KCHOL: { g4: 54, h4: 55, g2: 55, h2: 53 },
+  EREGL: { g4: 64, h4: 55, g2: 60, h2: 54 },
+  SAHOL: { g4: 53, h4: 59, g2: 56, h2: 52 },
+  TCELL: { g4: 48, h4: 53, g2: 55, h2: 48 },
+  SASA:  { g4: 48, h4: 35, g2: 39, h2: 51 },
+  ENKAI: { g4: 62, h4: 59, g2: 51, h2: 44 },
+  OYAKC: { g4: 59, h4: 53, g2: 56, h2: 51 },
+  MGROS: { g4: 61, h4: 51, g2: 62, h2: 58 },
+  ASTOR: { g4: 52, h4: 58, g2: 69, h2: 56 },
+}
+
+function Badge({ label, active }: { label: string; active: boolean }) {
   return (
     <span className={`px-2 py-0.5 rounded text-xs font-medium border ${
       active
@@ -93,7 +94,8 @@ function Badge({ label, active, special }: { label: string; active: boolean; spe
   )
 }
 
-function TFSection({ label, ind, lastClose }: { label: string; ind: IndicatorResult; lastClose: number }) {
+function TFSection({ label, ind, symbol, tf }: { label: string; ind: IndicatorResult; symbol: string; tf: '4h' | '2h' }) {
+  const rates = GOLDEN_RATES[symbol]
   const signalCount = [ind.stochRsiSignal, ind.ema10Signal, ind.wtSignal, ind.fisherSignal, ind.rsiSignal].filter(Boolean).length
 
   return (
@@ -123,13 +125,22 @@ function TFSection({ label, ind, lastClose }: { label: string; ind: IndicatorRes
         }`}>
           {ind.t3Bullish ? '▲' : '▼'} T3
         </span>
-        {ind.goldenCross && <Badge label="" active={false} special="golden" />}
-        {ind.halfGoldenCross && !ind.goldenCross && <Badge label="" active={false} special="half-golden" />}
+        {ind.goldenCross && (
+          <span className="flex flex-col items-center px-2 py-0.5 rounded text-xs font-semibold bg-yellow-500/20 text-yellow-300 border border-yellow-500/40">
+            <span>🌟 Golden Cross</span>
+            {rates && <span className="text-[10px] font-normal opacity-75">Win Rate {tf === '4h' ? rates.g4 : rates.g2}%</span>}
+          </span>
+        )}
+        {ind.halfGoldenCross && !ind.goldenCross && (
+          <span className="flex flex-col items-center px-2 py-0.5 rounded text-xs font-semibold bg-yellow-700/20 text-yellow-400 border border-yellow-700/40">
+            <span>⭐ Yarı Golden Cross</span>
+            {rates && <span className="text-[10px] font-normal opacity-75">Win Rate {tf === '4h' ? rates.h4 : rates.h2}%</span>}
+          </span>
+        )}
       </div>
 
-      {/* Divergence badge */}
       {(ind.divergence.bullish > 0 || ind.divergence.bearish > 0) && (
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {ind.divergence.bullish > 0 && (
             <div className="flex items-center gap-1.5 px-2 py-1 rounded text-xs font-semibold"
               style={{ background: 'rgba(0,255,100,0.08)', border: '1px solid rgba(0,255,100,0.25)', color: '#4dff91' }}>
@@ -193,7 +204,6 @@ function StockCard({ stock }: { stock: StockData }) {
     <div className={`bg-gray-900 rounded-xl p-4 space-y-3 border ${
       hasAnySignal ? 'border-green-700/50' : 'border-gray-800'
     }`}>
-      {/* Başlık */}
       <div className="flex items-center gap-3">
         {!imgError && LOGOS[stock.symbol] ? (
           <img
@@ -224,23 +234,22 @@ function StockCard({ stock }: { stock: StockData }) {
         <div className="text-xs text-red-400">Veri alınamadı: {stock.error}</div>
       ) : stock.tf4h && stock.tf2h ? (
         <div className="space-y-3 divide-y divide-gray-800">
-          <TFSection label="4 Saatlik" ind={stock.tf4h} lastClose={stock.lastClose ?? 0} />
+          <TFSection label="4 Saatlik" ind={stock.tf4h} symbol={stock.symbol} tf="4h" />
           <div className="pt-3">
-            <TFSection label="2 Saatlik" ind={stock.tf2h} lastClose={stock.lastClose ?? 0} />
+            <TFSection label="2 Saatlik" ind={stock.tf2h} symbol={stock.symbol} tf="2h" />
           </div>
         </div>
       ) : (
         <div className="text-xs text-gray-500">Yükleniyor...</div>
       )}
 
-      {/* TradingView linki */}
       <a
         href={`https://www.tradingview.com/chart/?symbol=BIST:${stock.symbol}`}
         target="_blank"
         rel="noopener noreferrer"
         className="block text-center text-xs text-blue-400 hover:text-blue-300 border border-blue-800/40 rounded py-1.5 transition-colors"
       >
-        📈 TradingView'da Aç
+        📈 TradingView&apos;da Aç
       </a>
     </div>
   )
@@ -251,7 +260,6 @@ export default function BistPage() {
   const [loading, setLoading] = useState(true)
   const [updatedAt, setUpdatedAt] = useState<string>('')
   const [error, setError] = useState<string>('')
-
   const [filterSignals, setFilterSignals] = useState(false)
 
   async function load() {
@@ -279,7 +287,6 @@ export default function BistPage() {
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 p-4 space-y-4">
 
-      {/* Başlık */}
       <div className="bg-gray-900 rounded-xl p-4 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">BIST Hisse Analizi</h1>
@@ -303,14 +310,12 @@ export default function BistPage() {
         </div>
       </div>
 
-
       {error && (
         <div className="bg-red-900/40 border border-red-600 text-red-300 text-center py-2 rounded text-sm">
           {error}
         </div>
       )}
 
-      {/* Sinyal özeti */}
       {!loading && signalStocks.length > 0 && (
         <div className="bg-green-900/20 border border-green-700/40 rounded-xl p-3">
           <div className="flex items-center justify-between mb-2">
@@ -338,7 +343,6 @@ export default function BistPage() {
         </div>
       )}
 
-      {/* Hisse kartları */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {Array.from({ length: 17 }).map((_, i) => (
