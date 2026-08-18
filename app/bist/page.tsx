@@ -251,9 +251,6 @@ export default function BistPage() {
         </div>
       </div>
 
-      <div className="bg-yellow-900/40 border border-yellow-600 text-yellow-300 text-center py-2 rounded text-sm">
-        ⚠ Yatırım tavsiyesi değildir — eğitim amaçlıdır
-      </div>
 
       {error && (
         <div className="bg-red-900/40 border border-red-600 text-red-300 text-center py-2 rounded text-sm">
@@ -291,6 +288,10 @@ export default function BistPage() {
           ))}
         </div>
       )}
+
+      <div className="text-[11px] text-gray-600 text-center pb-2">
+        ⚠ Eğitim amaçlıdır, yatırım tavsiyesi değildir
+      </div>
     </div>
   )
 }

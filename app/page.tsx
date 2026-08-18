@@ -65,10 +65,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </div>
       )}
 
-      {/* Uyarı bandı */}
-      <div className="bg-yellow-900/40 border border-yellow-600 text-yellow-300 text-center py-2 rounded text-sm">
-        ⚠ KÂĞIT ÜZERİNDE — eğitim amaçlı, yatırım tavsiyesi değil
-      </div>
+
 
       {/* 1. Hesap şeridi */}
       <div className="bg-gray-900 rounded-xl p-4 space-y-3">
@@ -403,8 +400,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           <p>• <strong>Risk</strong>: İşlem başına sermayenin %{(CONFIG.account.riskPerTrade * 100).toFixed(0)}&apos;i</p>
           <p>• <strong>Kontrol</strong>: Her saatin 20. ve 50. dakikasında</p>
         </div>
-        <div className="text-xs text-yellow-400 border border-yellow-700 rounded p-2">
-          ⚠ KÂĞIT ÜZERİNDE — eğitim amaçlı, yatırım tavsiyesi değil
+        <div className="text-[11px] text-gray-600 text-center">
+          ⚠ Eğitim amaçlıdır, yatırım tavsiyesi değildir
         </div>
       </div>
 
