@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server'
-import yahooFinance from 'yahoo-finance2'
+import YahooFinance from 'yahoo-finance2'
 import { calcIndicators } from '@/lib/bist-indicators'
 import type { Candle } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
+
+const yf = new YahooFinance()
 
 const SYMBOLS = [
   'THYAO', 'GARAN', 'AKBNK', 'ISCTR', 'TUPRS',
@@ -17,7 +19,7 @@ type YahooQuote = { open: number | null; high: number | null; low: number | null
 async function fetchCandles(ticker: string, interval: '4h' | '2h', limit = 200): Promise<Candle[]> {
   const yahooTicker = `${ticker}.IS`
   const period1 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
-  const result = await yahooFinance.chart(yahooTicker, { period1, interval: '1h' }) as { quotes: YahooQuote[] }
+  const result = await yf.chart(yahooTicker, { period1, interval: '1h' }) as { quotes: YahooQuote[] }
 
   const quotes = (result.quotes as YahooQuote[]).filter(q => q.open != null && q.close != null && q.high != null && q.low != null)
 
