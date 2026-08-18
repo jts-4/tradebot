@@ -205,6 +205,7 @@ export type IndicatorResult = {
   rsiSignal: boolean
   t3: number
   t3Bullish: boolean
+  strategyActive: boolean
   distFromLastDip: number
   lastDipPrice: number
   volume: number
@@ -319,6 +320,34 @@ export function calcIndicators(candles: Candle[], stochSettings: { k: number; d:
   const maBelowWarning = belowMa7 || belowMa14
   const maBelowWhich   = belowMa7 && belowMa14 ? 'MA7 ve MA14' : belowMa7 ? 'MA7' : belowMa14 ? 'MA14' : ''
   const rsiSignal = prevRsi < 40 && rsi > prevRsi
+
+  // Strateji: En son StochRSI tetiklenmesinden sonraki 16 mum içinde EMA10 üstünde kapanış var mı?
+  const { kArr: kArrFull, dArr: dArrFull } = calcStochRSI(closes, 14, 14, stochSettings.k, stochSettings.d)
+  const ema10Full = EMA.calculate({ period: 10, values: closes })
+  const ema10Offset = closes.length - ema10Full.length
+  const kOffset = closes.length - kArrFull.length
+  let strategyActive = false
+
+  // En son StochRSI tetiklenme indeksini bul
+  let lastTriggerIdx = -1
+  for (let i = kArrFull.length - 1; i >= 1; i--) {
+    if (kArrFull[i-1] < 25 && kArrFull[i-1] < dArrFull[i-1] && kArrFull[i] > dArrFull[i]) {
+      lastTriggerIdx = i + kOffset // closes dizisindeki index
+      break
+    }
+  }
+
+  // Tetiklenme bulunduysa, sonraki 16 mum içinde EMA10 üstünde kapanış ara
+  if (lastTriggerIdx >= 0) {
+    const searchEnd = Math.min(lastTriggerIdx + 16, closes.length - 1)
+    for (let j = lastTriggerIdx; j <= searchEnd; j++) {
+      const e = ema10Full[j - ema10Offset]
+      if (e != null && closes[j] > e) {
+        strategyActive = true
+        break
+      }
+    }
+  }
   const divergence = calcDivergence(candles)
 
   // Son swing low: son 30 mum içinde her iki yanda 3 mum daha yüksek olan nokta
@@ -343,6 +372,7 @@ export function calcIndicators(candles: Candle[], stochSettings: { k: number; d:
     goldenCross, halfGoldenCross, maBelowWarning, maBelowWhich,
     rsi, rsiSignal,
     t3, t3Bullish,
+    strategyActive,
     distFromLastDip, lastDipPrice,
     volume, avgVolume, volumeAboveAvg: volume > avgVolume,
     divergence,

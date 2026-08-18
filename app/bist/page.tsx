@@ -25,6 +25,7 @@ type IndicatorResult = {
   rsiSignal: boolean
   t3: number
   t3Bullish: boolean
+  strategyActive: boolean
   distFromLastDip: number
   lastDipPrice: number
   volume: number
@@ -168,6 +169,20 @@ function TFSection({ label, ind, symbol, tf }: { label: string; ind: IndicatorRe
       {ind.maBelowWarning && (
         <div className="text-xs text-orange-400 bg-orange-900/20 border border-orange-700/30 rounded px-2 py-1">
           📉 Grafik {ind.maBelowWhich} altında seyrediyor
+        </div>
+      )}
+
+      {tf === '2h' && ind.strategyActive && (
+        <div
+          className="px-3 py-1.5 rounded-lg text-xs font-bold tracking-wide"
+          style={{
+            background: 'rgba(0, 255, 120, 0.07)',
+            border: '1px solid rgba(0, 255, 120, 0.3)',
+            color: '#39ff8a',
+            textShadow: '0 0 8px rgba(0,255,120,0.4)',
+          }}
+        >
+          ✦ Stratejim
         </div>
       )}
 
