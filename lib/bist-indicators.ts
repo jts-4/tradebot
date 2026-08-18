@@ -342,12 +342,25 @@ export function calcIndicators(candles: Candle[], stochSettings: { k: number; d:
   // Tetiklenme bulunduysa, sonraki 16 mum içinde EMA10 üstünde kapanış ara
   if (lastTriggerIdx >= 0) {
     const searchEnd = Math.min(lastTriggerIdx + 16, closes.length - 1)
+    let crossIdx = -1
     for (let j = lastTriggerIdx; j <= searchEnd; j++) {
       const e = ema10Full[j - ema10Offset]
       if (e != null && closes[j] > e) {
+        crossIdx = j
         strategyActive = true
         ema10CrossBarsAgo = closes.length - 1 - j
         break
+      }
+    }
+    // EMA10 üstünde kapanış olduysa, sonrasında aşağı yönlü kapanış oldu mu?
+    if (crossIdx >= 0) {
+      for (let j = crossIdx + 1; j < closes.length; j++) {
+        const e = ema10Full[j - ema10Offset]
+        if (e != null && closes[j] < e) {
+          strategyActive = false
+          ema10CrossBarsAgo = -1
+          break
+        }
       }
     }
   }
