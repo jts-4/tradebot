@@ -206,6 +206,7 @@ export type IndicatorResult = {
   t3: number
   t3Bullish: boolean
   strategyActive: boolean
+  ema10CrossBarsAgo: number
   distFromLastDip: number
   lastDipPrice: number
   volume: number
@@ -327,6 +328,7 @@ export function calcIndicators(candles: Candle[], stochSettings: { k: number; d:
   const ema10Offset = closes.length - ema10Full.length
   const kOffset = closes.length - kArrFull.length
   let strategyActive = false
+  let ema10CrossBarsAgo = -1
 
   // En son StochRSI tetiklenme indeksini bul
   let lastTriggerIdx = -1
@@ -344,6 +346,7 @@ export function calcIndicators(candles: Candle[], stochSettings: { k: number; d:
       const e = ema10Full[j - ema10Offset]
       if (e != null && closes[j] > e) {
         strategyActive = true
+        ema10CrossBarsAgo = closes.length - 1 - j
         break
       }
     }
@@ -373,6 +376,7 @@ export function calcIndicators(candles: Candle[], stochSettings: { k: number; d:
     rsi, rsiSignal,
     t3, t3Bullish,
     strategyActive,
+    ema10CrossBarsAgo,
     distFromLastDip, lastDipPrice,
     volume, avgVolume, volumeAboveAvg: volume > avgVolume,
     divergence,

@@ -26,6 +26,7 @@ type IndicatorResult = {
   t3: number
   t3Bullish: boolean
   strategyActive: boolean
+  ema10CrossBarsAgo: number
   distFromLastDip: number
   lastDipPrice: number
   volume: number
@@ -183,6 +184,7 @@ function TFSection({ label, ind, symbol, tf }: { label: string; ind: IndicatorRe
           }}
         >
           ✦ Stratejim
+          {ind.ema10CrossBarsAgo === 0 ? ' · bu mumda EMA10 kesişimi' : ` · ${ind.ema10CrossBarsAgo} mum önce EMA10 kesişimi`}
         </div>
       )}
 
@@ -336,11 +338,11 @@ export default function BistPage() {
         </div>
       )}
 
-      {!loading && signalStocks.length > 0 && (
+      {!loading && (
         <div className="bg-green-900/20 border border-green-700/40 rounded-xl p-3">
           <div className="flex items-center justify-between mb-2">
             <div className="text-sm font-semibold text-green-300">
-              🟢 {signalStocks.length} hissede aktif sinyal
+              {signalStocks.length > 0 ? `🟢 ${signalStocks.length} hissede aktif sinyal` : '🔵 Aktif sinyal yok'}
             </div>
             <button
               onClick={() => setFilterSignals(f => !f)}
@@ -353,13 +355,15 @@ export default function BistPage() {
               {filterSignals ? '✓ Sadece Sinyaller' : 'Sadece Sinyaller'}
             </button>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {signalStocks.map(s => (
-              <span key={s.symbol} className="text-xs bg-green-800/40 text-green-200 px-2 py-1 rounded font-medium">
-                {s.symbol}
-              </span>
-            ))}
-          </div>
+          {signalStocks.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {signalStocks.map(s => (
+                <span key={s.symbol} className="text-xs bg-green-800/40 text-green-200 px-2 py-1 rounded font-medium">
+                  {s.symbol}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
