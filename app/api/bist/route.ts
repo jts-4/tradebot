@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const yahooFinance = require('yahoo-finance2').default
+import yahooFinance from 'yahoo-finance2'
 import { calcIndicators } from '@/lib/bist-indicators'
 import type { Candle } from '@/lib/types'
 
@@ -18,7 +17,7 @@ type YahooQuote = { open: number | null; high: number | null; low: number | null
 async function fetchCandles(ticker: string, interval: '4h' | '2h', limit = 200): Promise<Candle[]> {
   const yahooTicker = `${ticker}.IS`
   const period1 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
-  const result = await yahooFinance.chart(yahooTicker, { period1, interval: '1h' })
+  const result = await yahooFinance.chart(yahooTicker, { period1, interval: '1h' }) as { quotes: YahooQuote[] }
 
   const quotes = (result.quotes as YahooQuote[]).filter(q => q.open != null && q.close != null && q.high != null && q.low != null)
 
