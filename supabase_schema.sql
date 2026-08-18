@@ -86,3 +86,14 @@ on conflict (id) do nothing;
 
 insert into account_snapshots (equity, total_return, allocated, available)
 values (10000, 0, 0, 10000);
+
+-- BIST sinyal geçmişi
+create table if not exists bist_signals (
+  id uuid default gen_random_uuid() primary key,
+  symbol text not null,
+  price numeric not null,
+  signals_4h text[] not null default '{}',
+  signals_2h text[] not null default '{}',
+  volume_ok boolean not null default false,
+  created_at timestamptz default now()
+);
