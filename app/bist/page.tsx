@@ -12,6 +12,7 @@ type IndicatorResult = {
   wt1: number
   wt2: number
   fisherSignal: boolean
+  fisherSellSignal: boolean
   fisher: number
   fisherTrigger: number
   ma7: number
@@ -69,6 +70,28 @@ const LOGOS: Record<string, string> = {
   ASTOR: 'https://logo.clearbit.com/astorenerjı.com.tr',
 }
 
+// Fisher9 al sinyali win rate (10 saat pencere) - fisherSignal: prevFisher < prevTrig && fisher > trig && prevFisher < 0
+// Fisher9 sat sinyali win rate (6 saat pencere) - prevFisher > prevTrig && fisher < trig && prevFisher > 0
+const FISHER_RATES: Record<string, { buy: number; sell: number }> = {
+  THYAO: { buy: 55, sell: 66 },
+  GARAN: { buy: 62, sell: 58 },
+  AKBNK: { buy: 58, sell: 53 },
+  ISCTR: { buy: 52, sell: 51 },
+  TUPRS: { buy: 48, sell: 47 },
+  YKBNK: { buy: 55, sell: 48 },
+  KCHOL: { buy: 57, sell: 55 },
+  EREGL: { buy: 60, sell: 52 },
+  SAHOL: { buy: 54, sell: 58 },
+  BIMAS: { buy: 56, sell: 54 },
+  TCELL: { buy: 52, sell: 54 },
+  ASELS: { buy: 61, sell: 54 },
+  SASA:  { buy: 48, sell: 57 },
+  ENKAI: { buy: 55, sell: 53 },
+  OYAKC: { buy: 50, sell: 41 },
+  MGROS: { buy: 59, sell: 54 },
+  ASTOR: { buy: 52, sell: 51 },
+}
+
 const GOLDEN_RATES: Record<string, { g4: number; h4: number; g2: number; h2: number }> = {
   THYAO: { g4: 50, h4: 55, g2: 41, h2: 46 },
   GARAN: { g4: 43, h4: 42, g2: 52, h2: 44 },
@@ -123,7 +146,21 @@ function TFSection({ label, ind, symbol, tf }: { label: string; ind: IndicatorRe
         <Badge label="StochRSI" active={ind.stochRsiSignal} />
         <Badge label="EMA10" active={ind.ema10Signal} />
         <Badge label="WT" active={ind.wtSignal} />
-        <Badge label="Fisher9" active={ind.fisherSignal} />
+        <span className={`px-2 py-0.5 rounded text-xs font-medium border flex items-center gap-1 ${
+          ind.fisherSignal
+            ? 'bg-green-500/20 text-green-300 border-green-500/40'
+            : ind.fisherSellSignal
+            ? 'bg-red-500/20 text-red-400 border-red-500/40'
+            : 'bg-gray-800 text-gray-500 border-gray-700'
+        }`}>
+          {ind.fisherSignal ? '✓' : ind.fisherSellSignal ? '✗' : '✗'} Fisher9
+          {ind.fisherSignal && FISHER_RATES[symbol] && (
+            <span className="text-[10px] opacity-70">%{FISHER_RATES[symbol].buy}</span>
+          )}
+          {ind.fisherSellSignal && !ind.fisherSignal && FISHER_RATES[symbol] && (
+            <span className="text-[10px] opacity-70">sat %{FISHER_RATES[symbol].sell}</span>
+          )}
+        </span>
         <Badge label="RSI14" active={ind.rsiSignal} />
         <span className={`px-2 py-0.5 rounded text-xs font-medium border ${
           ind.t3Bullish

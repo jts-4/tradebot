@@ -192,6 +192,7 @@ export type IndicatorResult = {
   wt1: number
   wt2: number
   fisherSignal: boolean
+  fisherSellSignal: boolean
   fisher: number
   fisherTrigger: number
   ma7: number
@@ -313,7 +314,8 @@ export function calcIndicators(candles: Candle[], stochSettings: { k: number; d:
   const stochRsiSignal = prevK < 25 && prevK < prevD && stochK > stochD
   const ema10Signal    = lastClose > ema10
   const wtSignal       = prevWt1 < prevWt2 && wt1 > wt2 && prevWt1 < -60
-  const fisherSignal   = prevFisher < prevFisherTrig && fisher > fisherTrigger && prevFisher < 0
+  const fisherSignal     = prevFisher < prevFisherTrig && fisher > fisherTrigger && prevFisher < 0
+  const fisherSellSignal = prevFisher > prevFisherTrig && fisher < fisherTrigger && prevFisher > 0
   const goldenCross     = prevMa7 < prevMa21 && ma7 > ma21
   const halfGoldenCross = prevMa7 < prevMa14 && ma7 > ma14
   const belowMa7  = lastClose < ma7
@@ -383,7 +385,7 @@ export function calcIndicators(candles: Candle[], stochSettings: { k: number; d:
     stochRsiSignal, stochRsiK: stochK, stochRsiD: stochD, stochRsiPrevK: prevK, stochRsiPrevD: prevD,
     ema10Signal, ema10,
     wtSignal, wt1, wt2,
-    fisherSignal, fisher, fisherTrigger,
+    fisherSignal, fisherSellSignal, fisher, fisherTrigger,
     ma7, ma14, ma21,
     goldenCross, halfGoldenCross, maBelowWarning, maBelowWhich,
     rsi, rsiSignal,
