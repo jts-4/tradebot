@@ -70,26 +70,26 @@ const LOGOS: Record<string, string> = {
   ASTOR: 'https://logo.clearbit.com/astorenerjı.com.tr',
 }
 
-// Fisher9 al sinyali win rate (10 saat pencere) - fisherSignal: prevFisher < prevTrig && fisher > trig && prevFisher < 0
-// Fisher9 sat sinyali win rate (6 saat pencere) - prevFisher > prevTrig && fisher < trig && prevFisher > 0
+// Fisher9 al sinyali win rate (6 saat pencere en iyi genel)
+// Fisher9 sat sinyali win rate (6 saat pencere en iyi genel)
 const FISHER_RATES: Record<string, { buy: number; sell: number }> = {
-  THYAO: { buy: 55, sell: 66 },
-  GARAN: { buy: 62, sell: 58 },
-  AKBNK: { buy: 58, sell: 53 },
-  ISCTR: { buy: 52, sell: 51 },
-  TUPRS: { buy: 48, sell: 47 },
-  YKBNK: { buy: 55, sell: 48 },
-  KCHOL: { buy: 57, sell: 55 },
-  EREGL: { buy: 60, sell: 52 },
-  SAHOL: { buy: 54, sell: 58 },
-  BIMAS: { buy: 56, sell: 54 },
-  TCELL: { buy: 52, sell: 54 },
-  ASELS: { buy: 61, sell: 54 },
-  SASA:  { buy: 48, sell: 57 },
-  ENKAI: { buy: 55, sell: 53 },
-  OYAKC: { buy: 50, sell: 41 },
-  MGROS: { buy: 59, sell: 54 },
-  ASTOR: { buy: 52, sell: 51 },
+  THYAO: { buy: 43, sell: 66 },
+  GARAN: { buy: 54, sell: 58 },
+  AKBNK: { buy: 46, sell: 53 },
+  ISCTR: { buy: 51, sell: 51 },
+  TUPRS: { buy: 45, sell: 47 },
+  YKBNK: { buy: 47, sell: 48 },
+  KCHOL: { buy: 51, sell: 55 },
+  EREGL: { buy: 49, sell: 52 },
+  SAHOL: { buy: 56, sell: 58 },
+  BIMAS: { buy: 48, sell: 54 },
+  TCELL: { buy: 44, sell: 54 },
+  ASELS: { buy: 47, sell: 54 },
+  SASA:  { buy: 47, sell: 57 },
+  ENKAI: { buy: 61, sell: 53 },
+  OYAKC: { buy: 51, sell: 41 },
+  MGROS: { buy: 45, sell: 54 },
+  ASTOR: { buy: 51, sell: 51 },
 }
 
 const GOLDEN_RATES: Record<string, { g4: number; h4: number; g2: number; h2: number }> = {
