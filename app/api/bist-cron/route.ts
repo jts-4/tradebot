@@ -24,10 +24,12 @@ async function fetchCandles(ticker: string, interval: '4h' | '2h'): Promise<Cand
   const period1 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
   const result = await yf.chart(`${ticker}.IS`, { period1, interval: '1h' }) as { quotes: YahooQuote[] }
   const quotes = result.quotes.filter(q => q.open != null && q.close != null && q.high != null && q.low != null)
+  const lastDate = quotes.length > 0 ? new Date(quotes[quotes.length - 1].date) : null
+  const cleanQuotes = (lastDate && lastDate.getMinutes() !== 0) ? quotes.slice(0, -1) : quotes
   const groupSize = interval === '4h' ? 4 : 2
   const grouped: Candle[] = []
-  for (let i = 0; i + groupSize <= quotes.length; i += groupSize) {
-    const slice = quotes.slice(i, i + groupSize)
+  for (let i = 0; i + groupSize <= cleanQuotes.length; i += groupSize) {
+    const slice = cleanQuotes.slice(i, i + groupSize)
     grouped.push({
       open:   slice[0].open!,
       high:   Math.max(...slice.map((q: YahooQuote) => q.high!)),

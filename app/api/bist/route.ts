@@ -25,11 +25,17 @@ async function fetchCandles(ticker: string, interval: '4h' | '2h', limit = 200):
 
   const quotes = (result.quotes as YahooQuote[]).filter(q => q.open != null && q.close != null && q.high != null && q.low != null)
 
+  // Kapanmamış son mumu at: son mumun dakikası 0 değilse (tam saat kapanışı değil) çıkar
+  const lastDate = quotes.length > 0 ? new Date(quotes[quotes.length - 1].date) : null
+  const cleanQuotes = (lastDate && lastDate.getMinutes() !== 0)
+    ? quotes.slice(0, -1)
+    : quotes
+
   // 1h mumu → 4h veya 2h gruplama
   const groupSize = interval === '4h' ? 4 : 2
   const grouped: Candle[] = []
-  for (let i = 0; i + groupSize <= quotes.length; i += groupSize) {
-    const slice = quotes.slice(i, i + groupSize)
+  for (let i = 0; i + groupSize <= cleanQuotes.length; i += groupSize) {
+    const slice = cleanQuotes.slice(i, i + groupSize)
     grouped.push({
       open:   slice[0].open!,
       high:   Math.max(...slice.map((q: YahooQuote) => q.high!)),
