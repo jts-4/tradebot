@@ -252,7 +252,8 @@ function TFSection({ label, ind, symbol, tf }: { label: string; ind: IndicatorRe
 
 function StockCard({ stock }: { stock: StockData }) {
   const [imgError, setImgError] = useState(false)
-  const hasAnySignal = stock.tf4h && stock.tf2h && (
+  const hasSellSignal = !!stock.tf4h?.fisherSellSignal
+  const hasAnySignal = !hasSellSignal && stock.tf4h && stock.tf2h && (
     stock.tf4h.stochRsiSignal || stock.tf4h.ema10Signal || stock.tf4h.wtSignal ||
     stock.tf4h.fisherSignal || stock.tf4h.rsiSignal ||
     stock.tf2h.stochRsiSignal || stock.tf2h.ema10Signal || stock.tf2h.wtSignal ||
@@ -261,8 +262,22 @@ function StockCard({ stock }: { stock: StockData }) {
 
   return (
     <div className={`bg-gray-900 rounded-xl p-4 space-y-3 border ${
-      hasAnySignal ? 'border-green-700/50' : 'border-gray-800'
+      hasSellSignal ? 'border-red-500' : hasAnySignal ? 'border-green-700/50' : 'border-gray-800'
     }`}>
+      {hasSellSignal && (
+        <div
+          className="-mx-4 -mt-4 px-4 py-2 rounded-t-xl text-sm font-bold text-center tracking-widest"
+          style={{
+            background: 'rgba(255,30,30,0.15)',
+            color: '#ff4444',
+            border: '1px solid rgba(255,50,50,0.4)',
+            textShadow: '0 0 10px rgba(255,0,0,0.6)',
+            boxShadow: '0 0 16px rgba(255,0,0,0.15)',
+          }}
+        >
+          ⚠ SAT SİNYALİ — Fisher9 4H Aşağı Kesişim
+        </div>
+      )}
       <div className="flex items-center gap-3">
         {!imgError && LOGOS[stock.symbol] ? (
           <img
@@ -282,7 +297,13 @@ function StockCard({ stock }: { stock: StockData }) {
             <div className="text-sm text-gray-400 font-mono">₺{stock.lastClose.toFixed(2)}</div>
           )}
         </div>
-        {hasAnySignal && (
+        {hasSellSignal && (
+          <span className="ml-auto text-xs font-bold px-2 py-0.5 rounded-full"
+            style={{ background: 'rgba(255,30,30,0.2)', color: '#ff4444', border: '1px solid rgba(255,50,50,0.4)' }}>
+            SAT
+          </span>
+        )}
+        {!hasSellSignal && hasAnySignal && (
           <span className="ml-auto text-xs bg-green-600 text-white px-2 py-0.5 rounded-full font-semibold">
             AL SİNYALİ
           </span>
@@ -340,10 +361,13 @@ export default function BistPage() {
 
   useEffect(() => { load() }, [])
 
-  const signalStocks = data.filter(d => d.tf4h && d.tf2h && (
+  const sellStocks   = data.filter(d => d.tf4h?.fisherSellSignal)
+  const signalStocks = data.filter(d => !d.tf4h?.fisherSellSignal && d.tf4h && d.tf2h && (
     d.tf4h.stochRsiSignal || d.tf4h.ema10Signal || d.tf4h.wtSignal || d.tf4h.fisherSignal || d.tf4h.rsiSignal ||
     d.tf2h.stochRsiSignal || d.tf2h.ema10Signal || d.tf2h.wtSignal || d.tf2h.fisherSignal || d.tf2h.rsiSignal
   ))
+  const sortedData = [...sellStocks, ...data.filter(d => !d.tf4h?.fisherSellSignal)]
+  const filteredData = filterSignals ? [...sellStocks, ...signalStocks] : sortedData
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 p-4 space-y-4">
@@ -394,6 +418,16 @@ export default function BistPage() {
               {filterSignals ? '✓ Sadece Sinyaller' : 'Sadece Sinyaller'}
             </button>
           </div>
+          {sellStocks.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-2">
+              {sellStocks.map(s => (
+                <span key={s.symbol} className="text-xs px-2 py-1 rounded font-bold"
+                  style={{ background: 'rgba(255,30,30,0.15)', color: '#ff4444', border: '1px solid rgba(255,50,50,0.3)' }}>
+                  ⚠ {s.symbol} SAT
+                </span>
+              ))}
+            </div>
+          )}
           {signalStocks.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {signalStocks.map(s => (
@@ -418,7 +452,7 @@ export default function BistPage() {
           <div>
             <h2 className="text-base font-bold mb-3" style={{ color: '#0abfbc' }}>HİSSE SENETLERİ</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {(filterSignals ? signalStocks : data).map(stock => (
+              {filteredData.map(stock => (
                 <StockCard key={stock.symbol} stock={stock} />
               ))}
             </div>
