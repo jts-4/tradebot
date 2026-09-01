@@ -266,17 +266,13 @@ function StockCard({ stock }: { stock: StockData }) {
     }`}>
       {hasSellSignal && (
         <div
-          className="-mx-4 -mt-4 px-4 py-2 rounded-t-xl text-sm font-bold text-center tracking-widest"
+          className="-mx-4 -mt-4 px-4 py-2 rounded-t-xl"
           style={{
             background: 'rgba(255,30,30,0.15)',
-            color: '#ff4444',
             border: '1px solid rgba(255,50,50,0.4)',
-            textShadow: '0 0 10px rgba(255,0,0,0.6)',
             boxShadow: '0 0 16px rgba(255,0,0,0.15)',
           }}
-        >
-          ⚠ SAT
-        </div>
+        />
       )}
       <div className="flex items-center gap-3">
         {!imgError && LOGOS[stock.symbol] ? (
