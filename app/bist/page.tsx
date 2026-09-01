@@ -275,7 +275,7 @@ function StockCard({ stock }: { stock: StockData }) {
             boxShadow: '0 0 16px rgba(255,0,0,0.15)',
           }}
         >
-          ⚠ SAT SİNYALİ — Fisher9 4H Aşağı Kesişim
+          ⚠ SAT
         </div>
       )}
       <div className="flex items-center gap-3">
@@ -304,7 +304,8 @@ function StockCard({ stock }: { stock: StockData }) {
           </span>
         )}
         {!hasSellSignal && hasAnySignal && (
-          <span className="ml-auto text-xs bg-green-600 text-white px-2 py-0.5 rounded-full font-semibold">
+          <span className="ml-auto text-xs font-bold px-2 py-0.5 rounded-full"
+            style={{ background: 'rgba(30,200,100,0.2)', color: '#39ff8a', border: '1px solid rgba(50,255,120,0.4)' }}>
             AL SİNYALİ
           </span>
         )}
