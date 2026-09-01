@@ -24,21 +24,35 @@ async function fetchCandles(ticker: string, interval: '4h' | '2h'): Promise<Cand
   const period1 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
   const result = await yf.chart(`${ticker}.IS`, { period1, interval: '1h' }) as { quotes: YahooQuote[] }
   const quotes = result.quotes.filter(q => q.open != null && q.close != null && q.high != null && q.low != null)
-  const lastDate = quotes.length > 0 ? new Date(quotes[quotes.length - 1].date) : null
-  const cleanQuotes = (lastDate && lastDate.getMinutes() !== 0) ? quotes.slice(0, -1) : quotes
+  const filtered = quotes.filter(q => {
+    const d = new Date(q.date)
+    return !(d.getUTCHours() === 6 && d.getUTCMinutes() === 30)
+  })
+  const lastDate = filtered.length > 0 ? new Date(filtered[filtered.length - 1].date) : null
+  const cleanQuotes = (lastDate && lastDate.getMinutes() !== 0) ? filtered.slice(0, -1) : filtered
   const groupSize = interval === '4h' ? 4 : 2
   const grouped: Candle[] = []
-  for (let i = 0; i + groupSize <= cleanQuotes.length; i += groupSize) {
-    const slice = cleanQuotes.slice(i, i + groupSize)
-    grouped.push({
-      open:   slice[0].open!,
-      high:   Math.max(...slice.map((q: YahooQuote) => q.high!)),
-      low:    Math.min(...slice.map((q: YahooQuote) => q.low!)),
-      close:  slice[slice.length - 1].close!,
-      volume: slice.reduce((a: number, q: YahooQuote) => a + (q.volume ?? 0), 0),
-      time:   new Date(slice[0].date).getTime(),
-    })
+  const byDay = new Map<string, typeof cleanQuotes>()
+  for (const q of cleanQuotes) {
+    const d = new Date(q.date)
+    const dayKey = `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`
+    if (!byDay.has(dayKey)) byDay.set(dayKey, [])
+    byDay.get(dayKey)!.push(q)
   }
+  for (const dayQuotes of byDay.values()) {
+    for (let i = 0; i + groupSize <= dayQuotes.length; i += groupSize) {
+      const slice = dayQuotes.slice(i, i + groupSize)
+      grouped.push({
+        open:   slice[0].open!,
+        high:   Math.max(...slice.map((q: YahooQuote) => q.high!)),
+        low:    Math.min(...slice.map((q: YahooQuote) => q.low!)),
+        close:  slice[slice.length - 1].close!,
+        volume: slice.reduce((a: number, q: YahooQuote) => a + (q.volume ?? 0), 0),
+        time:   new Date(slice[0].date).getTime(),
+      })
+    }
+  }
+  grouped.sort((a, b) => a.time - b.time)
   return grouped.slice(-200)
 }
 
