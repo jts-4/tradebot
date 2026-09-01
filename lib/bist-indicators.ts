@@ -315,7 +315,14 @@ export function calcIndicators(candles: Candle[], stochSettings: { k: number; d:
   const ema10Signal    = lastClose > ema10
   const wtSignal       = prevWt1 < prevWt2 && wt1 > wt2 && prevWt1 < -60
   const fisherSignal     = prevFisher < prevFisherTrig && fisher > fisherTrigger && prevFisher < 0
-  const fisherSellSignal = prevFisher > prevFisherTrig && fisher < fisherTrigger && prevFisher > 0
+  const fisherSellSignal = (() => {
+    for (let i = fishArr.length - 1; i >= Math.max(0, fishArr.length - 3); i--) {
+      const pf = fishArr[i - 1], pt = trigArr[i - 1]
+      const cf = fishArr[i],     ct = trigArr[i]
+      if (pf > pt && cf < ct && pf > 0) return true
+    }
+    return false
+  })()
   const goldenCross     = prevMa7 < prevMa21 && ma7 > ma21
   const halfGoldenCross = prevMa7 < prevMa14 && ma7 > ma14
   const belowMa7  = lastClose < ma7
