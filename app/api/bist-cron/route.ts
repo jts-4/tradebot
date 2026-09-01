@@ -24,33 +24,39 @@ async function fetchCandles(ticker: string, interval: '4h' | '2h'): Promise<Cand
   const period1 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
   const result = await yf.chart(`${ticker}.IS`, { period1, interval: '1h' }) as { quotes: YahooQuote[] }
   const quotes = result.quotes.filter(q => q.open != null && q.close != null && q.high != null && q.low != null)
-  const filtered = quotes.filter(q => {
-    const d = new Date(q.date)
-    return !(d.getUTCHours() === 6 && d.getUTCMinutes() === 30)
-  })
-  const lastDate = filtered.length > 0 ? new Date(filtered[filtered.length - 1].date) : null
-  const cleanQuotes = (lastDate && lastDate.getMinutes() !== 0) ? filtered.slice(0, -1) : filtered
-  const groupSize = interval === '4h' ? 4 : 2
-  const grouped: Candle[] = []
-  const byDay = new Map<string, typeof cleanQuotes>()
-  for (const q of cleanQuotes) {
-    const d = new Date(q.date)
-    const dayKey = `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`
-    if (!byDay.has(dayKey)) byDay.set(dayKey, [])
-    byDay.get(dayKey)!.push(q)
+  const lastDate = quotes.length > 0 ? new Date(quotes[quotes.length - 1].date) : null
+  const cleanQuotes = (lastDate && lastDate.getMinutes() !== 0) ? quotes.slice(0, -1) : quotes
+
+  // TradingView gibi UTC sabit pencere gruplama
+  // BIST 07:00-15:00 UTC (10:00-18:00 IST)
+  // 2H: 07-09, 09-11, 11-13, 13-15 | 4H: 07-11, 11-15
+  const windowHours = interval === '4h' ? 4 : 2
+  function getWindowKey(date: Date): string {
+    const h = date.getUTCHours()
+    if (h < 7 || h >= 15) return ''
+    const dayKey = `${date.getUTCFullYear()}-${String(date.getUTCMonth()+1).padStart(2,'0')}-${String(date.getUTCDate()).padStart(2,'0')}`
+    return `${dayKey}-${Math.floor((h - 7) / windowHours)}`
   }
-  for (const dayQuotes of byDay.values()) {
-    for (let i = 0; i + groupSize <= dayQuotes.length; i += groupSize) {
-      const slice = dayQuotes.slice(i, i + groupSize)
-      grouped.push({
-        open:   slice[0].open!,
-        high:   Math.max(...slice.map((q: YahooQuote) => q.high!)),
-        low:    Math.min(...slice.map((q: YahooQuote) => q.low!)),
-        close:  slice[slice.length - 1].close!,
-        volume: slice.reduce((a: number, q: YahooQuote) => a + (q.volume ?? 0), 0),
-        time:   new Date(slice[0].date).getTime(),
-      })
-    }
+
+  const slotMap = new Map<string, typeof cleanQuotes>()
+  for (const q of cleanQuotes) {
+    const key = getWindowKey(new Date(q.date))
+    if (!key) continue
+    if (!slotMap.has(key)) slotMap.set(key, [])
+    slotMap.get(key)!.push(q)
+  }
+
+  const grouped: Candle[] = []
+  for (const slotQuotes of slotMap.values()) {
+    if (slotQuotes.length === 0) continue
+    grouped.push({
+      open:   slotQuotes[0].open!,
+      high:   Math.max(...slotQuotes.map((q: YahooQuote) => q.high!)),
+      low:    Math.min(...slotQuotes.map((q: YahooQuote) => q.low!)),
+      close:  slotQuotes[slotQuotes.length - 1].close!,
+      volume: slotQuotes.reduce((a: number, q: YahooQuote) => a + (q.volume ?? 0), 0),
+      time:   new Date(slotQuotes[0].date).getTime(),
+    })
   }
   grouped.sort((a, b) => a.time - b.time)
   return grouped.slice(-200)
