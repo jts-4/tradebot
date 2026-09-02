@@ -88,8 +88,8 @@ export async function POST(req: NextRequest) {
   const dayOfWeek = now.getUTCDay()
   const istMinutes = istHour * 60 + istMin
 
-  if (dayOfWeek === 0 || dayOfWeek === 6) return NextResponse.json({ skipped: 'weekend' })
-  if (istMinutes < 600 || istMinutes > 1100) return NextResponse.json({ skipped: 'outside_hours' })
+  // if (dayOfWeek === 0 || dayOfWeek === 6) return NextResponse.json({ skipped: 'weekend' })
+  // if (istMinutes < 600 || istMinutes > 1100) return NextResponse.json({ skipped: 'outside_hours' })
 
   // Açık session'ları çek
   const { data: openSessions } = await supabase
