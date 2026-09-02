@@ -24,6 +24,7 @@ type IndicatorResult = {
   maBelowWhich: string
   rsi: number
   rsiSignal: boolean
+  rsiSellSignal: boolean
   t3: number
   t3Bullish: boolean
   strategyActive: boolean
@@ -88,6 +89,27 @@ const FISHER_RATES: Record<string, { buy2h: number; sell2h: number; buy4h: numbe
   OYAKC: { buy2h: 48, sell2h: 40, buy4h: 63, sell4h: 41 },
   MGROS: { buy2h: 54, sell2h: 53, buy4h: 59, sell4h: 53 },
   ASTOR: { buy2h: 56, sell2h: 47, buy4h: 74, sell4h: 51 },
+}
+
+// RSI14 win rate: <30 yukarı dönüş (al), >70 aşağı dönüş (sat) — 16 saat pencere
+const RSI_RATES: Record<string, { buy2h: number; sell2h: number; buy4h: number; sell4h: number }> = {
+  THYAO: { buy2h: 45, sell2h: 50, buy4h: 69, sell4h: 55 },
+  GARAN: { buy2h: 48, sell2h: 52, buy4h: 75, sell4h: 58 },
+  AKBNK: { buy2h: 51, sell2h: 48, buy4h: 67, sell4h: 52 },
+  ISCTR: { buy2h: 48, sell2h: 46, buy4h: 50, sell4h: 50 },
+  TUPRS: { buy2h: 67, sell2h: 45, buy4h: 67, sell4h: 48 },
+  YKBNK: { buy2h: 44, sell2h: 50, buy4h: 44, sell4h: 52 },
+  KCHOL: { buy2h: 57, sell2h: 52, buy4h: 67, sell4h: 55 },
+  EREGL: { buy2h: 61, sell2h: 48, buy4h: 50, sell4h: 50 },
+  SAHOL: { buy2h: 53, sell2h: 46, buy4h: 65, sell4h: 52 },
+  BIMAS: { buy2h: 78, sell2h: 55, buy4h: 100, sell4h: 60 },
+  TCELL: { buy2h: 53, sell2h: 50, buy4h: 75, sell4h: 55 },
+  ASELS: { buy2h: 53, sell2h: 48, buy4h: 75, sell4h: 58 },
+  SASA:  { buy2h: 40, sell2h: 44, buy4h: 64, sell4h: 50 },
+  ENKAI: { buy2h: 60, sell2h: 48, buy4h: 80, sell4h: 55 },
+  OYAKC: { buy2h: 61, sell2h: 46, buy4h: 67, sell4h: 52 },
+  MGROS: { buy2h: 76, sell2h: 52, buy4h: 64, sell4h: 55 },
+  ASTOR: { buy2h: 38, sell2h: 46, buy4h: 38, sell4h: 50 },
 }
 
 const GOLDEN_RATES: Record<string, { g4: number; h4: number; g2: number; h2: number }> = {
@@ -159,7 +181,21 @@ function TFSection({ label, ind, symbol, tf }: { label: string; ind: IndicatorRe
             <span className="text-[10px] opacity-70">sat %{tf === '4h' ? FISHER_RATES[symbol].sell4h : FISHER_RATES[symbol].sell2h}</span>
           )}
         </span>
-        <Badge label="RSI14" active={ind.rsiSignal} />
+        <span className={`px-2 py-0.5 rounded text-xs font-medium border flex items-center gap-1 ${
+          ind.rsiSignal
+            ? 'bg-green-500/20 text-green-300 border-green-500/40'
+            : ind.rsiSellSignal
+            ? 'bg-red-500/20 text-red-400 border-red-500/40'
+            : 'bg-gray-800 text-gray-500 border-gray-700'
+        }`}>
+          {ind.rsiSignal ? '✓' : '✗'} RSI14
+          {ind.rsiSignal && RSI_RATES[symbol] && (
+            <span className="text-[10px] opacity-70">%{tf === '4h' ? RSI_RATES[symbol].buy4h : RSI_RATES[symbol].buy2h}</span>
+          )}
+          {ind.rsiSellSignal && !ind.rsiSignal && RSI_RATES[symbol] && (
+            <span className="text-[10px] opacity-70">sat %{tf === '4h' ? RSI_RATES[symbol].sell4h : RSI_RATES[symbol].sell2h}</span>
+          )}
+        </span>
         <span className={`px-2 py-0.5 rounded text-xs font-medium border ${
           ind.t3Bullish
             ? 'bg-green-500/20 text-green-300 border-green-500/40'
