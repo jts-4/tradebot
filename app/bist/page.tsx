@@ -375,8 +375,10 @@ function HistoryModal({ symbol, lastClose, onClose }: { symbol: string; lastClos
                   </span>
                   <span className="text-gray-400 text-[11px]">
                     {new Date(h.entry_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    {' '}{new Date(h.entry_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
                     {h.closed && h.exit_at && (
-                      <> — {new Date(h.exit_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}</>
+                      <> — {new Date(h.exit_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      {' '}{new Date(h.exit_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</>
                     )}
                   </span>
                 </div>
