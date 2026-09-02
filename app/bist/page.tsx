@@ -49,6 +49,7 @@ type StockData = {
   lastUpdated?: string
   tf4h?: IndicatorResult
   tf2h?: IndicatorResult
+  signalEntryPrice?: number | null
   error?: string
 }
 
@@ -451,8 +452,8 @@ function StockCard({ stock }: { stock: StockData }) {
                 style={{ background: 'rgba(255,30,30,0.2)', color: '#ff4444', border: '1px solid rgba(255,50,50,0.4)' }}>
                 SAT
               </span>
-              {stock.lastClose && (
-                <span className="text-[10px] font-mono text-red-400 opacity-80">₺{stock.lastClose.toFixed(2)}</span>
+              {stock.signalEntryPrice && (
+                <span className="text-[10px] font-mono text-red-400 opacity-80">₺{stock.signalEntryPrice.toFixed(2)}</span>
               )}
             </>
           )}
@@ -462,8 +463,8 @@ function StockCard({ stock }: { stock: StockData }) {
                 style={{ background: 'rgba(30,200,100,0.2)', color: '#39ff8a', border: '1px solid rgba(50,255,120,0.4)' }}>
                 AL SİNYALİ
               </span>
-              {stock.lastClose && (
-                <span className="text-[10px] font-mono text-green-400 opacity-80">₺{stock.lastClose.toFixed(2)}</span>
+              {stock.signalEntryPrice && (
+                <span className="text-[10px] font-mono text-green-400 opacity-80">₺{stock.signalEntryPrice.toFixed(2)}</span>
               )}
             </>
           )}

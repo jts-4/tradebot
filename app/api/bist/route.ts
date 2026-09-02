@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import YahooFinance from 'yahoo-finance2'
 import { calcIndicators } from '@/lib/bist-indicators'
+import { supabase } from '@/lib/supabase'
 import type { Candle } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
@@ -95,6 +96,17 @@ async function fetchCandles(ticker: string, interval: '4h' | '2h', limit = 200):
 }
 
 export async function GET() {
+  // Açık session entry price'larını çek
+  const { data: openSessions } = await supabase
+    .from('bist_signal_sessions')
+    .select('symbol, signal_type, entry_price')
+    .eq('closed', false)
+
+  const entryPriceMap: Record<string, number> = {}
+  for (const s of openSessions ?? []) {
+    entryPriceMap[`${s.symbol}:${s.signal_type}`] = s.entry_price
+  }
+
   const results = await Promise.allSettled(
     SYMBOLS.map(async (sym) => {
       const [r4h, r2h] = await Promise.all([
@@ -112,6 +124,7 @@ export async function GET() {
         lastUpdated: new Date().toISOString(),
         tf4h: ind4h,
         tf2h: ind2h,
+        signalEntryPrice: entryPriceMap[`${sym}:buy`] ?? entryPriceMap[`${sym}:sell`] ?? null,
       }
     })
   )
@@ -131,7 +144,7 @@ export async function GET() {
       const fp = FISHER_PERIODS[sym] ?? { buy4h: 9, sell4h: 9, buy2h: 9, sell2h: 9 }
       const ind4h = calcIndicators(r4h.candles, { k: 3, d: 3 }, 16, fp.buy4h)
       const ind2h = calcIndicators(r2h.candles, { k: 2, d: 2 }, 9, fp.buy2h)
-      return { symbol: sym, lastClose: r4h.lastPrice, lastUpdated: new Date().toISOString(), tf4h: ind4h, tf2h: ind2h }
+      return { symbol: sym, lastClose: r4h.lastPrice, lastUpdated: new Date().toISOString(), tf4h: ind4h, tf2h: ind2h, signalEntryPrice: entryPriceMap[`${sym}:buy`] ?? entryPriceMap[`${sym}:sell`] ?? null }
     })
   )
 
