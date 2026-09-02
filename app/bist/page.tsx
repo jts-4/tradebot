@@ -122,6 +122,28 @@ const RSI_RATES: Record<string, { buy2h: number; sell2h: number; buy4h: number; 
   ASTOR: { buy2h: 38, sell2h: 46, buy4h: 38, sell4h: 50 },
 }
 
+const FISHER_PERIODS: Record<string, { buy2h: number; buy4h: number }> = {
+  THYAO: { buy2h: 10, buy4h: 10 },
+  GARAN: { buy2h: 10, buy4h: 10 },
+  AKBNK: { buy2h:  9, buy4h: 10 },
+  ISCTR: { buy2h: 10, buy4h:  9 },
+  TUPRS: { buy2h:  9, buy4h: 10 },
+  YKBNK: { buy2h:  9, buy4h: 10 },
+  KCHOL: { buy2h: 10, buy4h:  9 },
+  EREGL: { buy2h: 10, buy4h: 10 },
+  SAHOL: { buy2h: 10, buy4h: 10 },
+  BIMAS: { buy2h: 10, buy4h:  9 },
+  TCELL: { buy2h: 10, buy4h:  9 },
+  ASELS: { buy2h:  9, buy4h: 10 },
+  SASA:  { buy2h:  9, buy4h:  9 },
+  ENKAI: { buy2h: 10, buy4h: 10 },
+  OYAKC: { buy2h: 10, buy4h: 10 },
+  MGROS: { buy2h:  9, buy4h:  9 },
+  ASTOR: { buy2h: 10, buy4h: 10 },
+  XU100: { buy2h:  9, buy4h:  9 },
+  XBANK: { buy2h:  9, buy4h:  9 },
+}
+
 const GOLDEN_RATES: Record<string, { g4: number; h4: number; g2: number; h2: number }> = {
   THYAO: { g4: 50, h4: 55, g2: 41, h2: 46 },
   GARAN: { g4: 43, h4: 42, g2: 52, h2: 44 },
@@ -156,6 +178,8 @@ function Badge({ label, active }: { label: string; active: boolean }) {
 
 function TFSection({ label, ind, symbol, tf }: { label: string; ind: IndicatorResult; symbol: string; tf: '4h' | '2h' }) {
   const rates = GOLDEN_RATES[symbol]
+  const fp = FISHER_PERIODS[symbol]
+  const fisherLabel = `Fisher${fp ? (tf === '4h' ? fp.buy4h : fp.buy2h) : 9}`
   const signalCount = [ind.stochRsiSignal, ind.ema10Signal, ind.wtSignal, ind.fisherSignal, ind.rsiSignal].filter(Boolean).length
 
   return (
@@ -183,7 +207,7 @@ function TFSection({ label, ind, symbol, tf }: { label: string; ind: IndicatorRe
             ? 'bg-red-500/20 text-red-400 border-red-500/40'
             : 'bg-gray-800 text-gray-500 border-gray-700'
         }`}>
-          {ind.fisherSignal ? '✓' : ind.fisherSellSignal ? '✗' : '✗'} Fisher9
+          {ind.fisherSignal ? '✓' : ind.fisherSellSignal ? '✗' : '✗'} {fisherLabel}
           {ind.fisherSignal && FISHER_RATES[symbol] && (
             <span className="text-[10px] opacity-70">%{tf === '4h' ? FISHER_RATES[symbol].buy4h : FISHER_RATES[symbol].buy2h}</span>
           )}
