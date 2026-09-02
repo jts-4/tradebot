@@ -108,8 +108,19 @@ export async function POST(req: NextRequest) {
         ind.halfGoldenCross && 'YariGoldenCross',
       ].filter(Boolean) as string[]
 
+      const isSell = !!ind4h.fisherSellSignal
+      const isBuy = !isSell && (
+        ind4h.stochRsiSignal || ind4h.ema10Signal || ind4h.wtSignal ||
+        ind4h.fisherSignal || ind4h.rsiSignal ||
+        ind2h.stochRsiSignal || ind2h.ema10Signal || ind2h.wtSignal ||
+        ind2h.fisherSignal || ind2h.rsiSignal
+      )
+
+      if (!isBuy && !isSell) return null
+
       return {
         symbol: sym,
+        signal_type: isSell ? 'sell' : 'buy',
         price: c4h[c4h.length - 1]?.close ?? 0,
         signals_4h: sig(ind4h),
         signals_2h: sig(ind2h),
@@ -122,6 +133,7 @@ export async function POST(req: NextRequest) {
   const signals = results
     .filter(r => r.status === 'fulfilled')
     .map(r => (r as PromiseFulfilledResult<typeof results[0] extends PromiseFulfilledResult<infer T> ? T : never>).value)
+    .filter(Boolean)
 
   if (signals.length > 0) {
     await supabase.from('bist_signals').insert(signals)

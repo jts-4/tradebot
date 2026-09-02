@@ -52,6 +52,15 @@ type StockData = {
   error?: string
 }
 
+type SignalHistory = {
+  id: string
+  signal_type: 'buy' | 'sell'
+  price: number
+  signals_4h: string[]
+  signals_2h: string[]
+  created_at: string
+}
+
 const LOGOS: Record<string, string> = {
   THYAO: 'https://logo.clearbit.com/turkishairlines.com',
   GARAN: 'https://logo.clearbit.com/garantibbva.com.tr',
@@ -290,8 +299,79 @@ function TFSection({ label, ind, symbol, tf }: { label: string; ind: IndicatorRe
   )
 }
 
+function HistoryModal({ symbol, onClose }: { symbol: string; onClose: () => void }) {
+  const [history, setHistory] = useState<SignalHistory[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch(`/api/bist-history?symbol=${symbol}`)
+      .then(r => r.json())
+      .then(d => { setHistory(d.data ?? []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [symbol])
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.7)' }}
+      onClick={onClose}
+    >
+      <div
+        className="bg-gray-900 border border-gray-700 rounded-xl p-4 w-full max-w-md max-h-[80vh] overflow-y-auto space-y-3"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <span className="font-bold text-white">{symbol} — Sinyal Geçmişi</span>
+          <button onClick={onClose} className="text-gray-400 hover:text-white text-lg leading-none">✕</button>
+        </div>
+        {loading ? (
+          <div className="text-xs text-gray-500 text-center py-4">Yükleniyor...</div>
+        ) : history.length === 0 ? (
+          <div className="text-xs text-gray-500 text-center py-4">Kayıtlı sinyal yok</div>
+        ) : (
+          history.map(h => {
+            const date = new Date(h.created_at)
+            const allSigs = [...h.signals_4h.map(s => `4H:${s}`), ...h.signals_2h.map(s => `2H:${s}`)]
+            return (
+              <div key={h.id} className={`rounded-lg p-3 border text-xs space-y-1.5 ${
+                h.signal_type === 'sell'
+                  ? 'bg-red-900/20 border-red-700/40'
+                  : 'bg-green-900/20 border-green-700/40'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <span className={`font-bold ${
+                    h.signal_type === 'sell' ? 'text-red-400' : 'text-green-400'
+                  }`}>
+                    {h.signal_type === 'sell' ? '▼ SAT' : '▲ AL'}
+                  </span>
+                  <span className="text-gray-400">
+                    {date.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    {' '}{date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-400">Fiyat:</span>
+                  <span className="font-mono font-semibold text-white">₺{h.price.toFixed(2)}</span>
+                </div>
+                {allSigs.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {allSigs.map(s => (
+                      <span key={s} className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300">{s}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })
+        )}
+      </div>
+    </div>
+  )
+}
+
 function StockCard({ stock }: { stock: StockData }) {
   const [imgError, setImgError] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
   const hasSellSignal = !!stock.tf4h?.fisherSellSignal
   const hasAnySignal = !hasSellSignal && stock.tf4h && stock.tf2h && (
     stock.tf4h.stochRsiSignal || stock.tf4h.ema10Signal || stock.tf4h.wtSignal ||
@@ -301,6 +381,8 @@ function StockCard({ stock }: { stock: StockData }) {
   )
 
   return (
+    <>
+    {showHistory && <HistoryModal symbol={stock.symbol} onClose={() => setShowHistory(false)} />}
     <div className={`bg-gray-900 rounded-xl p-4 space-y-3 border ${
       hasSellSignal ? 'border-red-500' : hasAnySignal ? 'border-green-700/50' : 'border-gray-800'
     }`}>
@@ -333,18 +415,30 @@ function StockCard({ stock }: { stock: StockData }) {
             <div className="text-sm text-gray-400 font-mono">₺{stock.lastClose.toFixed(2)}</div>
           )}
         </div>
-        {hasSellSignal && (
-          <span className="ml-auto text-xs font-bold px-2 py-0.5 rounded-full"
-            style={{ background: 'rgba(255,30,30,0.2)', color: '#ff4444', border: '1px solid rgba(255,50,50,0.4)' }}>
-            SAT
-          </span>
-        )}
-        {!hasSellSignal && hasAnySignal && (
-          <span className="ml-auto text-xs font-bold px-2 py-0.5 rounded-full"
-            style={{ background: 'rgba(30,200,100,0.2)', color: '#39ff8a', border: '1px solid rgba(50,255,120,0.4)' }}>
-            AL SİNYALİ
-          </span>
-        )}
+        <div className="ml-auto flex flex-col items-end gap-1">
+          {hasSellSignal && (
+            <>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                style={{ background: 'rgba(255,30,30,0.2)', color: '#ff4444', border: '1px solid rgba(255,50,50,0.4)' }}>
+                SAT
+              </span>
+              {stock.lastClose && (
+                <span className="text-[10px] font-mono text-red-400 opacity-80">₺{stock.lastClose.toFixed(2)}</span>
+              )}
+            </>
+          )}
+          {!hasSellSignal && hasAnySignal && (
+            <>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                style={{ background: 'rgba(30,200,100,0.2)', color: '#39ff8a', border: '1px solid rgba(50,255,120,0.4)' }}>
+                AL SİNYALİ
+              </span>
+              {stock.lastClose && (
+                <span className="text-[10px] font-mono text-green-400 opacity-80">₺{stock.lastClose.toFixed(2)}</span>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {stock.error ? (
@@ -360,15 +454,24 @@ function StockCard({ stock }: { stock: StockData }) {
         <div className="text-xs text-gray-500">Yükleniyor...</div>
       )}
 
-      <a
-        href={`https://www.tradingview.com/chart/?symbol=BIST:${stock.symbol}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="block text-center text-xs text-blue-400 hover:text-blue-300 border border-blue-800/40 rounded py-1.5 transition-colors"
-      >
-        📈 TradingView&apos;da Aç
-      </a>
+      <div className="flex items-end justify-between gap-2">
+        <button
+          onClick={() => setShowHistory(v => !v)}
+          className="text-[10px] text-gray-500 hover:text-gray-300 bg-gray-800/60 hover:bg-gray-700/60 border border-gray-700/50 rounded px-2 py-0.5 transition-colors"
+        >
+          History
+        </button>
+        <a
+          href={`https://www.tradingview.com/chart/?symbol=BIST:${stock.symbol}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-1 block text-center text-xs text-blue-400 hover:text-blue-300 border border-blue-800/40 rounded py-1.5 transition-colors"
+        >
+          📈 TradingView&apos;da Aç
+        </a>
+      </div>
     </div>
+    </>
   )
 }
 
