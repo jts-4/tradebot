@@ -116,11 +116,9 @@ export async function POST(req: NextRequest) {
         ind2h.fisherSignal || ind2h.rsiSignal
       )
 
-      if (!isBuy && !isSell) return null
-
       return {
         symbol: sym,
-        signal_type: isSell ? 'sell' : 'buy',
+        signal_type: isSell ? 'sell' : isBuy ? 'buy' : 'none',
         price: c4h[c4h.length - 1]?.close ?? 0,
         signals_4h: sig(ind4h),
         signals_2h: sig(ind2h),
@@ -133,7 +131,6 @@ export async function POST(req: NextRequest) {
   const signals = results
     .filter(r => r.status === 'fulfilled')
     .map(r => (r as PromiseFulfilledResult<typeof results[0] extends PromiseFulfilledResult<infer T> ? T : never>).value)
-    .filter(Boolean)
 
   if (signals.length > 0) {
     await supabase.from('bist_signals').insert(signals)

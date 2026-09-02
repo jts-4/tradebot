@@ -91,7 +91,7 @@ values (10000, 0, 0, 10000);
 create table if not exists bist_signals (
   id uuid default gen_random_uuid() primary key,
   symbol text not null,
-  signal_type text not null default 'buy' check (signal_type in ('buy', 'sell')),
+  signal_type text not null default 'buy' check (signal_type in ('buy', 'sell', 'none')),
   price numeric not null,
   signals_4h text[] not null default '{}',
   signals_2h text[] not null default '{}',
@@ -100,5 +100,5 @@ create table if not exists bist_signals (
 );
 
 -- Migration: mevcut tabloya signal_type ekle
-alter table bist_signals add column if not exists signal_type text not null default 'buy' check (signal_type in ('buy', 'sell'));
+alter table bist_signals add column if not exists signal_type text not null default 'buy' check (signal_type in ('buy', 'sell', 'none'));
 create index if not exists bist_signals_symbol_idx on bist_signals(symbol, created_at desc);
