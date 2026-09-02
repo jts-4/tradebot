@@ -91,6 +91,15 @@ export async function POST(req: NextRequest) {
   if (dayOfWeek === 0 || dayOfWeek === 6) return NextResponse.json({ skipped: 'weekend' })
   if (istMinutes < 600 || istMinutes > 1100) return NextResponse.json({ skipped: 'outside_hours' })
 
+  // Açık session'ları çek
+  const { data: openSessions } = await supabase
+    .from('bist_signal_sessions')
+    .select('id, symbol, signal_type, entry_price, max_price')
+    .eq('closed', false)
+
+  const openMap = new Map<string, { id: string; signal_type: string; entry_price: number; max_price: number }>()
+  for (const s of openSessions ?? []) openMap.set(`${s.symbol}:${s.signal_type}`, s)
+
   const results = await Promise.allSettled(
     SYMBOLS.map(async (sym) => {
       const [c4h, c2h] = await Promise.all([fetchCandles(sym, '4h'), fetchCandles(sym, '2h')])
@@ -116,10 +125,41 @@ export async function POST(req: NextRequest) {
         ind2h.fisherSignal || ind2h.rsiSignal
       )
 
+      const currentPrice = c4h[c4h.length - 1]?.close ?? 0
+      const signalType = isSell ? 'sell' : isBuy ? 'buy' : 'none'
+
+      // Session yönetimi
+      for (const sType of ['buy', 'sell'] as const) {
+        const key = `${sym}:${sType}`
+        const open = openMap.get(key)
+        const isActive = sType === 'sell' ? isSell : isBuy
+
+        if (isActive && !open) {
+          // Yeni session aç
+          await supabase.from('bist_signal_sessions').insert({
+            symbol: sym, signal_type: sType,
+            entry_price: currentPrice, max_price: currentPrice,
+          })
+        } else if (isActive && open) {
+          // Max fiyatı güncelle
+          if (currentPrice > open.max_price) {
+            await supabase.from('bist_signal_sessions')
+              .update({ max_price: currentPrice })
+              .eq('id', open.id)
+          }
+        } else if (!isActive && open) {
+          // Session kapat
+          const pnl = ((currentPrice - open.entry_price) / open.entry_price) * 100
+          await supabase.from('bist_signal_sessions')
+            .update({ exit_price: currentPrice, exit_at: new Date().toISOString(), pnl_pct: pnl, closed: true })
+            .eq('id', open.id)
+        }
+      }
+
       return {
         symbol: sym,
-        signal_type: isSell ? 'sell' : isBuy ? 'buy' : 'none',
-        price: c4h[c4h.length - 1]?.close ?? 0,
+        signal_type: signalType,
+        price: currentPrice,
         signals_4h: sig(ind4h),
         signals_2h: sig(ind2h),
         volume_ok: ind4h.volumeAboveAvg,

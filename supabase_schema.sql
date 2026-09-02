@@ -102,3 +102,18 @@ create table if not exists bist_signals (
 -- Migration: mevcut tabloya signal_type ekle
 alter table bist_signals add column if not exists signal_type text not null default 'buy' check (signal_type in ('buy', 'sell', 'none'));
 create index if not exists bist_signals_symbol_idx on bist_signals(symbol, created_at desc);
+
+-- BIST sinyal oturumları (başlangıçtan bitişe tam yaşam döngüsü)
+create table if not exists bist_signal_sessions (
+  id uuid default gen_random_uuid() primary key,
+  symbol text not null,
+  signal_type text not null check (signal_type in ('buy', 'sell')),
+  entry_price numeric not null,
+  entry_at timestamptz not null default now(),
+  max_price numeric not null,
+  exit_price numeric,
+  exit_at timestamptz,
+  pnl_pct numeric,
+  closed boolean not null default false
+);
+create index if not exists bist_signal_sessions_symbol_idx on bist_signal_sessions(symbol, entry_at desc);

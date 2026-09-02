@@ -8,11 +8,11 @@ export async function GET(req: NextRequest) {
   if (!symbol) return NextResponse.json({ error: 'symbol required' }, { status: 400 })
 
   const { data, error } = await supabase
-    .from('bist_signals')
-    .select('id, signal_type, price, signals_4h, signals_2h, created_at')
+    .from('bist_signal_sessions')
+    .select('id, signal_type, entry_price, entry_at, max_price, exit_price, exit_at, pnl_pct, closed')
     .eq('symbol', symbol)
-    .order('created_at', { ascending: false })
-    .limit(50)
+    .order('entry_at', { ascending: false })
+    .limit(30)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })

@@ -55,10 +55,13 @@ type StockData = {
 type SignalHistory = {
   id: string
   signal_type: 'buy' | 'sell'
-  price: number
-  signals_4h: string[]
-  signals_2h: string[]
-  created_at: string
+  entry_price: number
+  entry_at: string
+  max_price: number
+  exit_price: number | null
+  exit_at: string | null
+  pnl_pct: number | null
+  closed: boolean
 }
 
 const LOGOS: Record<string, string> = {
@@ -354,8 +357,8 @@ function HistoryModal({ symbol, onClose }: { symbol: string; onClose: () => void
           <div className="text-xs text-gray-500 text-center py-4">Kayıtlı sinyal yok</div>
         ) : (
           history.map(h => {
-            const date = new Date(h.created_at)
-            const allSigs = [...h.signals_4h.map(s => `4H:${s}`), ...h.signals_2h.map(s => `2H:${s}`)]
+            const entryDate = new Date(h.entry_at)
+            const maxPct = ((h.max_price - h.entry_price) / h.entry_price) * 100
             return (
               <div key={h.id} className={`rounded-lg p-3 border text-xs space-y-1.5 ${
                 h.signal_type === 'sell'
@@ -367,23 +370,25 @@ function HistoryModal({ symbol, onClose }: { symbol: string; onClose: () => void
                     h.signal_type === 'sell' ? 'text-red-400' : 'text-green-400'
                   }`}>
                     {h.signal_type === 'sell' ? '▼ SAT' : '▲ AL'}
+                    {!h.closed && <span className="ml-1 text-yellow-400">• aktif</span>}
                   </span>
                   <span className="text-gray-400">
-                    {date.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                    {' '}{date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                    {entryDate.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' })}
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-400">Fiyat:</span>
-                  <span className="font-mono font-semibold text-white">₺{h.price.toFixed(2)}</span>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-gray-300">
+                  <span>Giriş: <span className="font-mono text-white">₺{h.entry_price.toFixed(2)}</span></span>
+                  <span>Max: <span className="font-mono text-green-400">₺{h.max_price.toFixed(2)}</span></span>
+                  <span>Max artış: <span className="font-mono text-green-400">+{maxPct.toFixed(1)}%</span></span>
+                  {h.closed && h.exit_price != null && (
+                    <span>Sonuç: <span className={`font-mono font-bold ${
+                      (h.pnl_pct ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'
+                    }`}>{(h.pnl_pct ?? 0) >= 0 ? '+' : ''}{h.pnl_pct?.toFixed(1)}%</span></span>
+                  )}
+                  {h.closed && h.exit_price != null && (
+                    <span>Çıkış: <span className="font-mono text-white">₺{h.exit_price.toFixed(2)}</span></span>
+                  )}
                 </div>
-                {allSigs.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {allSigs.map(s => (
-                      <span key={s} className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300">{s}</span>
-                    ))}
-                  </div>
-                )}
               </div>
             )
           })
