@@ -263,7 +263,7 @@ function calcFisher9(candles: Candle[], period = 9) {
   return { fishArr, trigArr: [0, ...fishArr.slice(0, -1)] }
 }
 
-export function calcIndicators(candles: Candle[], stochSettings: { k: number; d: number }, strategyWindow = 16): IndicatorResult {
+export function calcIndicators(candles: Candle[], stochSettings: { k: number; d: number }, strategyWindow = 16, fisherPeriod = 9): IndicatorResult {
   const closes  = candles.map(c => c.close)
   const volumes = candles.map(c => c.volume)
 
@@ -297,7 +297,7 @@ export function calcIndicators(candles: Candle[], stochSettings: { k: number; d:
   const wt2     = wt1arr.slice(-4).reduce((a, b) => a + b, 0) / 4
   const prevWt2 = wt1arr.slice(-5, -1).reduce((a, b) => a + b, 0) / 4
 
-  const { fishArr, trigArr } = calcFisher9(candles)
+  const { fishArr, trigArr } = calcFisher9(candles, fisherPeriod)
   const fisher        = fishArr[fishArr.length - 1]
   const fisherTrigger = trigArr[trigArr.length - 1]
   const prevFisher    = fishArr[fishArr.length - 2]

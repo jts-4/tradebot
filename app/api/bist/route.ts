@@ -16,6 +16,30 @@ const SYMBOLS = [
 
 const INDICES = ['XU100', 'XBANK']
 
+const FISHER_PERIODS: Record<string, { buy2h: number; sell2h: number; buy4h: number; sell4h: number }> = {
+  THYAO: { buy2h: 10, sell2h:  9, buy4h: 10, sell4h: 10 },
+  GARAN: { buy2h: 10, sell2h:  9, buy4h: 10, sell4h:  9 },
+  AKBNK: { buy2h:  9, sell2h:  9, buy4h: 10, sell4h:  9 },
+  ISCTR: { buy2h: 10, sell2h: 10, buy4h:  9, sell4h:  9 },
+  TUPRS: { buy2h:  9, sell2h: 10, buy4h: 10, sell4h: 10 },
+  YKBNK: { buy2h:  9, sell2h: 10, buy4h: 10, sell4h:  9 },
+  KCHOL: { buy2h: 10, sell2h:  9, buy4h:  9, sell4h:  9 },
+  EREGL: { buy2h: 10, sell2h:  9, buy4h: 10, sell4h:  9 },
+  SAHOL: { buy2h: 10, sell2h:  9, buy4h: 10, sell4h: 10 },
+  BIMAS: { buy2h: 10, sell2h:  9, buy4h:  9, sell4h: 10 },
+  TCELL: { buy2h: 10, sell2h:  9, buy4h:  9, sell4h: 10 },
+  ASELS: { buy2h:  9, sell2h: 10, buy4h: 10, sell4h: 10 },
+  SASA:  { buy2h:  9, sell2h:  9, buy4h:  9, sell4h: 10 },
+  ENKAI: { buy2h: 10, sell2h:  9, buy4h: 10, sell4h: 10 },
+  OYAKC: { buy2h: 10, sell2h:  9, buy4h: 10, sell4h:  9 },
+  MGROS: { buy2h:  9, sell2h: 10, buy4h:  9, sell4h:  9 },
+  ASTOR: { buy2h: 10, sell2h: 10, buy4h: 10, sell4h:  9 },
+  XU100: { buy2h:  9, sell2h:  9, buy4h:  9, sell4h:  9 },
+  XBANK: { buy2h:  9, sell2h:  9, buy4h:  9, sell4h:  9 },
+}
+
+
+
 type YahooQuote = { open: number | null; high: number | null; low: number | null; close: number | null; volume: number | null; date: Date }
 
 async function fetchCandles(ticker: string, interval: '4h' | '2h', limit = 200): Promise<{ candles: Candle[], lastPrice: number }> {
@@ -78,8 +102,9 @@ export async function GET() {
         fetchCandles(sym, '2h'),
       ])
 
-      const ind4h = calcIndicators(r4h.candles, { k: 3, d: 3 })
-      const ind2h = calcIndicators(r2h.candles, { k: 2, d: 2 }, 9)
+      const fp = FISHER_PERIODS[sym] ?? { buy4h: 9, sell4h: 9, buy2h: 9, sell2h: 9 }
+      const ind4h = calcIndicators(r4h.candles, { k: 3, d: 3 }, 16, fp.buy4h)
+      const ind2h = calcIndicators(r2h.candles, { k: 2, d: 2 }, 9, fp.buy2h)
 
       return {
         symbol: sym,
@@ -103,8 +128,9 @@ export async function GET() {
         fetchCandles(sym, '4h'),
         fetchCandles(sym, '2h'),
       ])
-      const ind4h = calcIndicators(r4h.candles, { k: 3, d: 3 })
-      const ind2h = calcIndicators(r2h.candles, { k: 2, d: 2 }, 9)
+      const fp = FISHER_PERIODS[sym] ?? { buy4h: 9, sell4h: 9, buy2h: 9, sell2h: 9 }
+      const ind4h = calcIndicators(r4h.candles, { k: 3, d: 3 }, 16, fp.buy4h)
+      const ind2h = calcIndicators(r2h.candles, { k: 2, d: 2 }, 9, fp.buy2h)
       return { symbol: sym, lastClose: r4h.lastPrice, lastUpdated: new Date().toISOString(), tf4h: ind4h, tf2h: ind2h }
     })
   )

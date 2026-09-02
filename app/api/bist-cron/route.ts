@@ -16,6 +16,26 @@ const SYMBOLS = [
   'MGROS', 'ASTOR',
 ]
 
+const FISHER_PERIODS: Record<string, { buy2h: number; buy4h: number }> = {
+  THYAO: { buy2h: 10, buy4h: 10 },
+  GARAN: { buy2h: 10, buy4h: 10 },
+  AKBNK: { buy2h:  9, buy4h: 10 },
+  ISCTR: { buy2h: 10, buy4h:  9 },
+  TUPRS: { buy2h:  9, buy4h: 10 },
+  YKBNK: { buy2h:  9, buy4h: 10 },
+  KCHOL: { buy2h: 10, buy4h:  9 },
+  EREGL: { buy2h: 10, buy4h: 10 },
+  SAHOL: { buy2h: 10, buy4h: 10 },
+  BIMAS: { buy2h: 10, buy4h:  9 },
+  TCELL: { buy2h: 10, buy4h:  9 },
+  ASELS: { buy2h:  9, buy4h: 10 },
+  SASA:  { buy2h:  9, buy4h:  9 },
+  ENKAI: { buy2h: 10, buy4h: 10 },
+  OYAKC: { buy2h: 10, buy4h: 10 },
+  MGROS: { buy2h:  9, buy4h:  9 },
+  ASTOR: { buy2h: 10, buy4h: 10 },
+}
+
 type YahooQuote = { open: number | null; high: number | null; low: number | null; close: number | null; volume: number | null; date: Date }
 
 const yf = new YahooFinance()
@@ -26,10 +46,6 @@ async function fetchCandles(ticker: string, interval: '4h' | '2h'): Promise<Cand
   const quotes = result.quotes.filter(q => q.open != null && q.close != null && q.high != null && q.low != null)
   const lastDate = quotes.length > 0 ? new Date(quotes[quotes.length - 1].date) : null
   const cleanQuotes = (lastDate && lastDate.getMinutes() !== 0) ? quotes.slice(0, -1) : quotes
-
-  // TradingView gibi UTC sabit pencere gruplama
-  // BIST 07:00-15:00 UTC (10:00-18:00 IST)
-  // 2H: 07-09, 09-11, 11-13, 13-15 | 4H: 07-11, 11-15
   const windowHours = interval === '4h' ? 4 : 2
   function getWindowKey(date: Date): string {
     const h = date.getUTCHours()
@@ -37,7 +53,6 @@ async function fetchCandles(ticker: string, interval: '4h' | '2h'): Promise<Cand
     const dayKey = `${date.getUTCFullYear()}-${String(date.getUTCMonth()+1).padStart(2,'0')}-${String(date.getUTCDate()).padStart(2,'0')}`
     return `${dayKey}-${Math.floor((h - 7) / windowHours)}`
   }
-
   const slotMap = new Map<string, typeof cleanQuotes>()
   for (const q of cleanQuotes) {
     const key = getWindowKey(new Date(q.date))
@@ -45,7 +60,6 @@ async function fetchCandles(ticker: string, interval: '4h' | '2h'): Promise<Cand
     if (!slotMap.has(key)) slotMap.set(key, [])
     slotMap.get(key)!.push(q)
   }
-
   const grouped: Candle[] = []
   for (const slotQuotes of slotMap.values()) {
     if (slotQuotes.length === 0) continue
@@ -80,14 +94,15 @@ export async function POST(req: NextRequest) {
   const results = await Promise.allSettled(
     SYMBOLS.map(async (sym) => {
       const [c4h, c2h] = await Promise.all([fetchCandles(sym, '4h'), fetchCandles(sym, '2h')])
-      const ind4h = calcIndicators(c4h, { k: 3, d: 3 })
-      const ind2h = calcIndicators(c2h, { k: 2, d: 2 }, 9)
+      const fp = FISHER_PERIODS[sym] ?? { buy4h: 9, buy2h: 9 }
+      const ind4h = calcIndicators(c4h, { k: 3, d: 3 }, 16, fp.buy4h)
+      const ind2h = calcIndicators(c2h, { k: 2, d: 2 }, 9, fp.buy2h)
 
       const sig = (ind: typeof ind4h) => [
         ind.stochRsiSignal && 'StochRSI',
         ind.ema10Signal    && 'EMA10',
         ind.wtSignal       && 'WT',
-        ind.fisherSignal   && 'Fisher9',
+        ind.fisherSignal   && 'Fisher',
         ind.rsiSignal      && 'RSI14',
         ind.goldenCross    && 'GoldenCross',
         ind.halfGoldenCross && 'YariGoldenCross',

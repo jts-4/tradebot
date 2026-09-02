@@ -70,26 +70,24 @@ const LOGOS: Record<string, string> = {
   ASTOR: 'https://logo.clearbit.com/astorenerjı.com.tr',
 }
 
-// Fisher9 al sinyali win rate (6 saat pencere en iyi genel)
-// Fisher9 sat sinyali win rate (6 saat pencere en iyi genel)
-const FISHER_RATES: Record<string, { buy: number; sell: number }> = {
-  THYAO: { buy: 43, sell: 66 },
-  GARAN: { buy: 54, sell: 58 },
-  AKBNK: { buy: 46, sell: 53 },
-  ISCTR: { buy: 51, sell: 51 },
-  TUPRS: { buy: 45, sell: 47 },
-  YKBNK: { buy: 47, sell: 48 },
-  KCHOL: { buy: 51, sell: 55 },
-  EREGL: { buy: 49, sell: 52 },
-  SAHOL: { buy: 56, sell: 58 },
-  BIMAS: { buy: 48, sell: 54 },
-  TCELL: { buy: 44, sell: 54 },
-  ASELS: { buy: 47, sell: 54 },
-  SASA:  { buy: 47, sell: 57 },
-  ENKAI: { buy: 61, sell: 53 },
-  OYAKC: { buy: 51, sell: 41 },
-  MGROS: { buy: 45, sell: 54 },
-  ASTOR: { buy: 51, sell: 51 },
+const FISHER_RATES: Record<string, { buy2h: number; sell2h: number; buy4h: number; sell4h: number }> = {
+  THYAO: { buy2h: 48, sell2h: 59, buy4h: 47, sell4h: 57 },
+  GARAN: { buy2h: 58, sell2h: 48, buy4h: 64, sell4h: 49 },
+  AKBNK: { buy2h: 52, sell2h: 42, buy4h: 52, sell4h: 36 },
+  ISCTR: { buy2h: 48, sell2h: 45, buy4h: 44, sell4h: 42 },
+  TUPRS: { buy2h: 54, sell2h: 52, buy4h: 50, sell4h: 39 },
+  YKBNK: { buy2h: 54, sell2h: 51, buy4h: 67, sell4h: 55 },
+  KCHOL: { buy2h: 47, sell2h: 42, buy4h: 64, sell4h: 47 },
+  EREGL: { buy2h: 55, sell2h: 43, buy4h: 52, sell4h: 42 },
+  SAHOL: { buy2h: 38, sell2h: 47, buy4h: 50, sell4h: 52 },
+  BIMAS: { buy2h: 46, sell2h: 52, buy4h: 50, sell4h: 43 },
+  TCELL: { buy2h: 49, sell2h: 47, buy4h: 50, sell4h: 53 },
+  ASELS: { buy2h: 48, sell2h: 50, buy4h: 75, sell4h: 53 },
+  SASA:  { buy2h: 45, sell2h: 57, buy4h: 53, sell4h: 57 },
+  ENKAI: { buy2h: 43, sell2h: 42, buy4h: 61, sell4h: 50 },
+  OYAKC: { buy2h: 48, sell2h: 40, buy4h: 63, sell4h: 41 },
+  MGROS: { buy2h: 54, sell2h: 53, buy4h: 59, sell4h: 53 },
+  ASTOR: { buy2h: 56, sell2h: 47, buy4h: 74, sell4h: 51 },
 }
 
 const GOLDEN_RATES: Record<string, { g4: number; h4: number; g2: number; h2: number }> = {
@@ -155,10 +153,10 @@ function TFSection({ label, ind, symbol, tf }: { label: string; ind: IndicatorRe
         }`}>
           {ind.fisherSignal ? '✓' : ind.fisherSellSignal ? '✗' : '✗'} Fisher9
           {ind.fisherSignal && FISHER_RATES[symbol] && (
-            <span className="text-[10px] opacity-70">%{FISHER_RATES[symbol].buy}</span>
+            <span className="text-[10px] opacity-70">%{tf === '4h' ? FISHER_RATES[symbol].buy4h : FISHER_RATES[symbol].buy2h}</span>
           )}
           {ind.fisherSellSignal && !ind.fisherSignal && FISHER_RATES[symbol] && (
-            <span className="text-[10px] opacity-70">sat %{FISHER_RATES[symbol].sell}</span>
+            <span className="text-[10px] opacity-70">sat %{tf === '4h' ? FISHER_RATES[symbol].sell4h : FISHER_RATES[symbol].sell2h}</span>
           )}
         </span>
         <Badge label="RSI14" active={ind.rsiSignal} />
