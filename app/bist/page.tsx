@@ -345,7 +345,7 @@ function HistoryModal({ symbol, onClose }: { symbol: string; onClose: () => void
       onClick={onClose}
     >
       <div
-        className="bg-gray-900 border border-gray-700 rounded-xl p-4 w-full max-w-md max-h-[80vh] overflow-y-auto space-y-3"
+        className="bg-gray-900 border border-gray-700 rounded-xl p-4 w-full max-w-lg max-h-[80vh] overflow-y-auto space-y-3"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
@@ -358,7 +358,6 @@ function HistoryModal({ symbol, onClose }: { symbol: string; onClose: () => void
           <div className="text-xs text-gray-500 text-center py-4">Kayıtlı sinyal yok</div>
         ) : (
           history.map(h => {
-            const entryDate = new Date(h.entry_at)
             const maxPct = ((h.max_price - h.entry_price) / h.entry_price) * 100
             return (
               <div key={h.id} className={`rounded-lg p-3 border text-xs space-y-1.5 ${
@@ -374,7 +373,10 @@ function HistoryModal({ symbol, onClose }: { symbol: string; onClose: () => void
                     {!h.closed && <span className="ml-1 text-yellow-400">• aktif</span>}
                   </span>
                   <span className="text-gray-400">
-                    {entryDate.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    {new Date(h.entry_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    {h.closed && h.exit_at && (
+                      <> — {new Date(h.exit_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}</>
+                    )}
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-gray-300">
