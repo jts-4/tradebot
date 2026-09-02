@@ -24,6 +24,7 @@ type IndicatorResult = {
   maBelowWhich: string
   rsi: number
   rsiSignal: boolean
+  rsiStrongSignal: boolean
   rsiSellSignal: boolean
   t3: number
   t3Bullish: boolean
@@ -181,21 +182,26 @@ function TFSection({ label, ind, symbol, tf }: { label: string; ind: IndicatorRe
             <span className="text-[10px] opacity-70">sat %{tf === '4h' ? FISHER_RATES[symbol].sell4h : FISHER_RATES[symbol].sell2h}</span>
           )}
         </span>
-        <span className={`px-2 py-0.5 rounded text-xs font-medium border flex items-center gap-1 ${
+        <span className={`px-2 py-0.5 rounded text-xs border flex items-center gap-1 ${
           ind.rsiSignal
-            ? 'bg-green-500/20 text-green-300 border-green-500/40'
+            ? 'bg-green-500/20 text-green-300 border-green-500/40 font-medium'
             : ind.rsiSellSignal
-            ? 'bg-red-500/20 text-red-400 border-red-500/40'
-            : 'bg-gray-800 text-gray-500 border-gray-700'
+            ? 'bg-red-500/20 text-red-400 border-red-500/40 font-medium'
+            : 'bg-gray-800 text-gray-500 border-gray-700 font-medium'
         }`}>
           {ind.rsiSignal ? '✓' : '✗'} RSI14
-          {ind.rsiSignal && RSI_RATES[symbol] && (
+          {ind.rsiStrongSignal && RSI_RATES[symbol] && (
             <span className="text-[10px] opacity-70">%{tf === '4h' ? RSI_RATES[symbol].buy4h : RSI_RATES[symbol].buy2h}</span>
           )}
           {ind.rsiSellSignal && !ind.rsiSignal && RSI_RATES[symbol] && (
             <span className="text-[10px] opacity-70">sat %{tf === '4h' ? RSI_RATES[symbol].sell4h : RSI_RATES[symbol].sell2h}</span>
           )}
         </span>
+        {ind.rsiSignal && !ind.rsiStrongSignal && RSI_RATES[symbol] && (
+          <span className="text-[9px] text-gray-500 opacity-60">
+            zayıf sinyal %{tf === '4h' ? RSI_RATES[symbol].buy4h : RSI_RATES[symbol].buy2h}
+          </span>
+        )}
         <span className={`px-2 py-0.5 rounded text-xs font-medium border ${
           ind.t3Bullish
             ? 'bg-green-500/20 text-green-300 border-green-500/40'

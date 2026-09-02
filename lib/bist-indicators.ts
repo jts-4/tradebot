@@ -204,6 +204,7 @@ export type IndicatorResult = {
   maBelowWhich: string
   rsi: number
   rsiSignal: boolean
+  rsiStrongSignal: boolean
   rsiSellSignal: boolean
   t3: number
   t3Bullish: boolean
@@ -330,7 +331,8 @@ export function calcIndicators(candles: Candle[], stochSettings: { k: number; d:
   const belowMa14 = lastClose < ma14
   const maBelowWarning = belowMa7 || belowMa14
   const maBelowWhich   = belowMa7 && belowMa14 ? 'MA7 ve MA14' : belowMa7 ? 'MA7' : belowMa14 ? 'MA14' : ''
-  const rsiSignal     = prevRsi < 30 && rsi > prevRsi
+  const rsiSignal     = prevRsi < 35 && rsi > prevRsi
+  const rsiStrongSignal = prevRsi < 30 && rsi > prevRsi
   const rsiSellSignal = prevRsi > 70 && rsi < prevRsi
 
   // Strateji: En son StochRSI tetiklenmesinden sonraki 16 mum içinde EMA10 üstünde kapanış var mı?
@@ -397,7 +399,7 @@ export function calcIndicators(candles: Candle[], stochSettings: { k: number; d:
     fisherSignal, fisherSellSignal, fisher, fisherTrigger,
     ma7, ma14, ma21,
     goldenCross, halfGoldenCross, maBelowWarning, maBelowWhich,
-    rsi, rsiSignal, rsiSellSignal,
+    rsi, rsiSignal, rsiStrongSignal, rsiSellSignal,
     t3, t3Bullish,
     strategyActive,
     ema10CrossBarsAgo,
