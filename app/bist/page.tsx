@@ -327,7 +327,7 @@ function TFSection({ label, ind, symbol, tf }: { label: string; ind: IndicatorRe
   )
 }
 
-function HistoryModal({ symbol, onClose }: { symbol: string; onClose: () => void }) {
+function HistoryModal({ symbol, lastClose, onClose }: { symbol: string; lastClose?: number; onClose: () => void }) {
   const [history, setHistory] = useState<SignalHistory[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -359,8 +359,9 @@ function HistoryModal({ symbol, onClose }: { symbol: string; onClose: () => void
         ) : (
           history.map(h => {
             const maxPct = ((h.max_price - h.entry_price) / h.entry_price) * 100
+            const currentPct = lastClose ? ((lastClose - h.entry_price) / h.entry_price) * 100 : null
             return (
-              <div key={h.id} className={`rounded-lg p-3 border text-xs space-y-1.5 ${
+              <div key={h.id} className={`rounded-lg p-3 border text-xs space-y-2 ${
                 h.signal_type === 'sell'
                   ? 'bg-red-900/20 border-red-700/40'
                   : 'bg-green-900/20 border-green-700/40'
@@ -372,24 +373,24 @@ function HistoryModal({ symbol, onClose }: { symbol: string; onClose: () => void
                     {h.signal_type === 'sell' ? '▼ SAT' : '▲ AL'}
                     {!h.closed && <span className="ml-1 text-yellow-400">• aktif</span>}
                   </span>
-                  <span className="text-gray-400">
+                  <span className="text-gray-400 text-[11px]">
                     {new Date(h.entry_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
                     {h.closed && h.exit_at && (
                       <> — {new Date(h.exit_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}</>
                     )}
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-gray-300">
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-gray-300">
                   <span>Giriş: <span className="font-mono text-white">₺{h.entry_price.toFixed(2)}</span></span>
-                  <span>Max: <span className="font-mono text-green-400">₺{h.max_price.toFixed(2)}</span></span>
-                  <span>Max artış: <span className="font-mono text-green-400">+{maxPct.toFixed(1)}%</span></span>
-                  {h.closed && h.exit_price != null && (
-                    <span>Sonuç: <span className={`font-mono font-bold ${
-                      (h.pnl_pct ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'
-                    }`}>{(h.pnl_pct ?? 0) >= 0 ? '+' : ''}{h.pnl_pct?.toFixed(1)}%</span></span>
+                  <span>En Yüksek: <span className="font-mono text-green-400">₺{h.max_price.toFixed(2)} (+{maxPct.toFixed(1)}%)</span></span>
+                  {!h.closed && currentPct !== null && lastClose && (
+                    <span>Şu an: <span className={`font-mono font-bold ${currentPct >= 0 ? 'text-green-400' : 'text-red-400'}`}>₺{lastClose.toFixed(2)} ({currentPct >= 0 ? '+' : ''}{currentPct.toFixed(1)}%)</span></span>
                   )}
                   {h.closed && h.exit_price != null && (
                     <span>Çıkış: <span className="font-mono text-white">₺{h.exit_price.toFixed(2)}</span></span>
+                  )}
+                  {h.closed && h.pnl_pct != null && (
+                    <span>Sonuç: <span className={`font-mono font-bold ${h.pnl_pct >= 0 ? 'text-green-400' : 'text-red-400'}`}>{h.pnl_pct >= 0 ? '+' : ''}{h.pnl_pct.toFixed(1)}%</span></span>
                   )}
                 </div>
               </div>
@@ -414,7 +415,7 @@ function StockCard({ stock }: { stock: StockData }) {
 
   return (
     <>
-    {showHistory && <HistoryModal symbol={stock.symbol} onClose={() => setShowHistory(false)} />}
+    {showHistory && <HistoryModal symbol={stock.symbol} lastClose={stock.lastClose} onClose={() => setShowHistory(false)} />}
     <div className={`bg-gray-900 rounded-xl p-4 space-y-3 border ${
       hasSellSignal ? 'border-red-500' : hasAnySignal ? 'border-green-700/50' : 'border-gray-800'
     }`}>
